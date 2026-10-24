@@ -1,0 +1,128 @@
+export type Role = 'faithful' | 'traitor';
+export type Team = Role;
+
+export type Phase =
+  | 'lobby'
+  | 'roleReveal'
+  | 'breakfast'
+  | 'mission'
+  | 'roundtable'
+  | 'vote'
+  | 'banishment'
+  | 'night'
+  | 'endgameVote'
+  | 'gameOver';
+
+export interface Player {
+  id: string;
+  name: string;
+  color: string;
+  isBot: boolean;
+  alive: boolean;
+  /** How and on which day the player left the game. */
+  out?: { by: 'banished' | 'murdered'; day: number };
+}
+
+export interface Settings {
+  /** 0 means "pick automatically from the player count". */
+  traitorCount: number;
+  /** The endgame starts when this many players (or fewer) remain. */
+  finalCount: number;
+  voteSeconds: number;
+  discussionSeconds: number;
+}
+
+export interface MissionState {
+  cardId: string;
+  result: 'pending' | 'success' | 'partial' | 'fail';
+  earned: number;
+}
+
+export interface BanishmentState {
+  /** Order in which the votes are read out at the Round Table. */
+  order: string[];
+  /** Votes snapshot: voter -> target. */
+  votes: Record<string, string>;
+  revealed: number;
+  step: 'votes' | 'tie' | 'verdict' | 'role';
+  tied: string[];
+  banishedId: string | null;
+}
+
+export interface ChatMessage {
+  from: string;
+  text: string;
+  at: number;
+}
+
+export interface GameState {
+  code: string;
+  phase: Phase;
+  day: number;
+  players: Player[];
+  /** Secret. Never shown to a player except their own role (and fellow Traitors). */
+  roles: Record<string, Role>;
+  settings: Settings;
+  pot: number;
+  usedMissions: string[];
+  mission: MissionState | null;
+
+  /** Round Table votes for the current round: voter -> target. */
+  votes: Record<string, string>;
+  /** When set, only these players can be voted for (a revote after a tie). */
+  voteCandidates: string[] | null;
+  voteRound: number;
+  banishment: BanishmentState | null;
+
+  /** Secret: Traitor -> murder target. */
+  nightPicks: Record<string, string>;
+  /** Secret: Traitors' private chat for the whole game. */
+  traitorChat: ChatMessage[];
+  /** Faithful "decoy" task at night, so every phone looks busy: player -> suspect. */
+  suspicions: Record<string, string>;
+  /** Who was found murdered at the latest breakfast. */
+  murdered: string | null;
+  breakfastRevealed: boolean;
+
+  endVotes: Record<string, 'end' | 'banish'>;
+  winner: Team | null;
+
+  /** Epoch millis when the current timer runs out, if any. */
+  timerEndsAt: number | null;
+  log: { day: number; text: string }[];
+  /** Bumped on every change so clients can ignore stale updates. */
+  rev: number;
+}
+
+export type Action =
+  | { type: 'join'; playerId: string; name: string }
+  | { type: 'leave'; playerId: string }
+  | { type: 'addBot' }
+  | { type: 'updateSettings'; settings: Partial<Settings> }
+  | { type: 'start' }
+  | { type: 'advance' }
+  | { type: 'missionResult'; result: 'success' | 'partial' | 'fail' }
+  | { type: 'startTimer'; seconds: number }
+  | { type: 'clearTimer' }
+  | { type: 'castVote'; playerId: string; targetId: string }
+  | { type: 'closeVoting' }
+  | { type: 'revealNext' }
+  | { type: 'nightPick'; playerId: string; targetId: string }
+  | { type: 'traitorChat'; playerId: string; text: string }
+  | { type: 'suspect'; playerId: string; targetId: string }
+  | { type: 'endVote'; playerId: string; choice: 'end' | 'banish' }
+  | { type: 'restart' };
+
+/** Actions that only the host screen may send. Everything else carries a playerId. */
+export const HOST_ACTIONS: Action['type'][] = [
+  'addBot',
+  'updateSettings',
+  'start',
+  'advance',
+  'missionResult',
+  'startTimer',
+  'clearTimer',
+  'closeVoting',
+  'revealNext',
+  'restart',
+];
