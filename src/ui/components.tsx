@@ -20,10 +20,28 @@ export function useNow(intervalMs = 250): number {
   return now;
 }
 
+// Cloak and dagger: a gold dagger driven down through a crimson cloak. Kept in step with public/favicon.svg.
+export function LogoMark({ className = 'logo-mark' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 128 128" aria-hidden>
+      <path d="M34 34c10-6 50-6 60 0 4 14 10 40 22 66-16 6-26-2-32-12-6 10-14 14-20 14s-14-4-20-14c-6 10-16 18-32 12 12-26 18-52 22-66Z" fill="#8e1b22" />
+      <path d="M34 34c10-6 50-6 60 0-2 10-6 30-10 54-6 10-14 14-20 14s-14-4-20-14c-4-24-8-44-10-54Z" fill="#6a1218" />
+      <circle cx="64" cy="12" r="6" fill="#d4af5f" />
+      <rect x="60" y="16" width="8" height="16" fill="#9c8045" />
+      <rect x="38" y="28" width="52" height="9" rx="3" fill="#d4af5f" />
+      <path d="M58 37h12v66l-6 20-6-20Z" fill="#d4af5f" />
+      <path d="M64 37h6v66l-6 20Z" fill="#f3d58c" />
+    </svg>
+  );
+}
+
 export function Logo({ tagline = false }: { tagline?: boolean }) {
   return (
     <div className="logo">
-      Turncloak
+      <span className="logo-row">
+        <LogoMark />
+        Turncloak
+      </span>
       {tagline && <small>Trust no one at the table</small>}
     </div>
   );
