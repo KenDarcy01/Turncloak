@@ -20,10 +20,26 @@ export function useNow(intervalMs = 250): number {
   return now;
 }
 
+// The turned hood: a cloak worn gold on one side and blood red on the other. Kept in step with public/favicon.svg.
+export function LogoMark({ className = 'logo-mark' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 128 128" aria-hidden>
+      <path d="M64 8C36 12 24 42 26 74c1 20-5 32-16 46h108c-11-14-17-26-16-46C104 42 92 12 64 8Z" fill="#d4af5f" />
+      <path d="M64 8c28 4 40 34 38 66-1 20 5 32 16 46H64Z" fill="#8e1b22" />
+      <path d="M64 32c-15 2-21 20-19 38 1 12 9 21 19 26 10-5 18-14 19-26 2-18-4-36-19-38Z" fill="#0b0708" />
+      <path d="M51 63c4-3 8-3 10 0-3 2-7 2-10 0Z" fill="#f3d58c" />
+      <path d="M67 63c2-3 6-3 10 0-3 2-7 2-10 0Z" fill="#c62a33" />
+    </svg>
+  );
+}
+
 export function Logo({ tagline = false }: { tagline?: boolean }) {
   return (
     <div className="logo">
-      Turncloak
+      <span className="logo-row">
+        <LogoMark />
+        Turncloak
+      </span>
       {tagline && <small>Trust no one at the table</small>}
     </div>
   );
