@@ -1,3 +1,5 @@
+import { RESORT_MISSIONS } from './missions-resort';
+
 /**
  * Party missions played in the room. The host reads the card from the TV,
  * runs it, and records the result, which adds gold to the prize pot.
@@ -33,8 +35,17 @@ export interface PromptSet {
   showSeconds?: number;
 }
 
+export type MissionPack = 'castle' | 'resort';
+
+export const MISSION_PACKS: { id: MissionPack; name: string; blurb: string }[] = [
+  { id: 'resort', name: 'Resort & Pool', blurb: 'Warm and cold pools, an inflatable ring and an inflatable football' },
+  { id: 'castle', name: 'Castle (indoors)', blurb: 'Living room games with paper, cups and a spoon' },
+];
+
 export interface MissionCard {
   id: string;
+  /** Missions not tagged belong to the castle pack. */
+  pack?: MissionPack;
   title: string;
   /** One line of atmosphere, read aloud first. */
   intro: string;
@@ -157,7 +168,7 @@ const TOWER_MATERIALS: PromptItem[] = [
   { text: 'Anything from one kitchen drawer, chosen by the host.' },
 ];
 
-export const MISSIONS: MissionCard[] = [
+const CASTLE_MISSIONS: MissionCard[] = [
   {
     id: 'minstrel-hum',
     title: 'The Minstrel’s Hum',
@@ -363,6 +374,10 @@ export const MISSIONS: MissionCard[] = [
     reward: 2000,
   },
 ];
+
+export const MISSIONS: MissionCard[] = [...CASTLE_MISSIONS, ...RESORT_MISSIONS];
+
+export const packOf = (m: MissionCard): MissionPack => m.pack ?? 'castle';
 
 export function missionById(id: string): MissionCard {
   return MISSIONS.find((m) => m.id === id) ?? MISSIONS[0];

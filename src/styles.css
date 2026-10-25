@@ -280,3 +280,4 @@ input.code { text-transform: uppercase; letter-spacing: 0.4em; text-align: cente
 .btn.on { border-color: var(--gold-bright); background: rgba(212, 175, 95, 0.2); box-shadow: 0 0 0 1px var(--gold-bright) inset; }
 .demo-tabs .ping { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blood-bright); margin-left: 6px; vertical-align: middle; animation: pulse 1s infinite; }
 .prompts.single { list-style: none; padding-left: 0; }
+.safety { border-left: 3px solid #4fa3c7; background: rgba(79, 163, 199, 0.1); padding: 10px 14px; border-radius: 0 10px 10px 0; font-size: 1rem; color: var(--parchment); }

@@ -1,0 +1,276 @@
+import type { MissionCard, PromptItem } from './missions';
+
+/**
+ * The Resort & Pool pack: missions for a holiday resort with warm and cold
+ * pools, an inflatable ring and an inflatable football.
+ */
+
+export const POOL_SAFETY =
+  'Play only where everyone can stand. Walk, never run, on the poolside, and follow the resort’s pool rules and lifeguards. Nobody has to get in the water: anyone can swap into a poolside job.';
+
+const RESORT_MIMES: PromptItem[] = [
+  { text: 'Pouring Moroccan mint tea from high above the glass' },
+  { text: 'Haggling for a rug in the souk' },
+  { text: 'Riding a camel that will not stand up' },
+  { text: 'Getting into the cold pool one centimetre at a time' },
+  { text: 'Putting sun cream on your own back' },
+  { text: 'Losing your sunbed to someone else’s towel' },
+  { text: 'Doing a belly flop' },
+  { text: 'Leading an aqua aerobics class' },
+  { text: 'Piling a plate at the breakfast buffet' },
+  { text: 'Lifting the lid off a sizzling tagine' },
+  { text: 'Being scrubbed in a hammam' },
+  { text: 'Blowing up an inflatable ring with no pump' },
+  { text: 'A waiter carrying a full tray across wet tiles' },
+  { text: 'Taking a selfie with a palm tree that keeps getting in the way' },
+];
+
+const POOL_WHISPERS: PromptItem[] = [
+  { text: 'The waiter at the warm pool hid twelve mint teas under the third sunbed.' },
+  { text: 'A camel called Gerald has booked the best sunbed for the whole of next week.' },
+  { text: 'Never trust a lifeguard who wears flippers to breakfast.' },
+  { text: 'The cold pool is warmer on Tuesdays, but only if you whisper to the palm tree.' },
+  { text: 'Somebody swapped the sun cream for honey and now the wasps are very happy.' },
+  { text: 'Seven sleepy tourists slipped slowly into the second swimming pool.' },
+];
+
+const MOROCCO_TRIVIA: PromptItem[] = [
+  { text: 'What is the capital city of Morocco?', answer: 'Rabat' },
+  { text: 'What is the currency of Morocco called?', answer: 'The dirham' },
+  { text: 'Which mountain range runs across the middle of Morocco?', answer: 'The Atlas Mountains' },
+  { text: 'Which Moroccan city is nicknamed the Red City?', answer: 'Marrakech' },
+  { text: 'Which Moroccan town is famous for its blue-painted streets?', answer: 'Chefchaouen' },
+  { text: 'What is the name of the cone-lidded clay pot used for slow-cooked stews?', answer: 'A tagine' },
+  { text: 'Which sea lies along Morocco’s northern coast?', answer: 'The Mediterranean Sea' },
+  { text: 'Which herb gives Moroccan tea its flavour?', answer: 'Mint' },
+  { text: 'What is the name of the famous main square in Marrakech?', answer: 'Jemaa el-Fnaa' },
+  { text: 'Which desert covers the south-east of Morocco?', answer: 'The Sahara' },
+  { text: 'In which city is the huge Hassan II Mosque, built partly over the sea?', answer: 'Casablanca' },
+  { text: 'Which narrow strait separates Morocco from Spain?', answer: 'The Strait of Gibraltar' },
+];
+
+const ESTIMATES: PromptItem[] = [
+  { text: 'How many sunbeds are around the warm pool you are next to?' },
+  { text: 'How many parasols can you see from where you are standing right now?' },
+  { text: 'How many palm trees can you see from the edge of this pool?' },
+  { text: 'How many steps lead down into the nearest pool, counting every pool’s steps together?' },
+  { text: 'How many people are in all the pools you can see right now?' },
+  { text: 'How many lifebuoys or rescue rings can you see around the pools?' },
+];
+
+const SYNCHRO_THEMES: PromptItem[] = [
+  { text: 'A blooming flower' },
+  { text: 'A sinking pirate ship' },
+  { text: 'A camel caravan crossing the desert' },
+  { text: 'A firework display' },
+  { text: 'A washing machine on full spin' },
+  { text: 'A family of ducks' },
+];
+
+const TOWEL_SHAPES: PromptItem[] = [
+  { text: 'A swan' },
+  { text: 'An elephant' },
+  { text: 'A snake' },
+  { text: 'A camel' },
+  { text: 'A crocodile' },
+  { text: 'A heart' },
+  { text: 'A teddy bear' },
+];
+
+export const RESORT_MISSIONS: MissionCard[] = [
+  {
+    id: 'pool-ring-toss',
+    pack: 'resort',
+    title: 'The Ring of Fortune',
+    intro: 'The Fates throw rings from the shore. Only the worthy are crowned.',
+    props: ['The inflatable ring', 'A warm pool, standing depth'],
+    time: 'About 5 minutes',
+    roles: { name: 'Post', duty: 'Stands still in the warm pool, arms by their sides, as the target.' },
+    steps: [
+      'The post (named below) stands in the warm pool, water no deeper than their chest, three big steps from the edge. Arms stay down, no leaning to help.',
+      'Everyone else lines up on the poolside. In turn, each player throws the inflatable ring underarm, trying to land it over the post’s head.',
+      'Each thrower gets two throws. The post hands the ring back after each throw.',
+      'A ring counts if it ends up around the post’s neck or shoulders.',
+    ],
+    scoring: { success: 'Rings landed on at least half the throws', partial: 'At least three rings landed', fail: 'Two or fewer' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-volley',
+    pack: 'resort',
+    title: 'Keep the Sun in the Sky',
+    intro: 'The ball is the sun. If it touches the water, night falls on us all.',
+    props: ['The inflatable football', 'A warm pool, standing depth'],
+    time: '3 attempts, about 4 minutes',
+    steps: [
+      'Everyone stands in a circle in the warm pool, about an arm’s length apart.',
+      'Keep the inflatable football in the air using open hands, fists or heads. No catching or holding.',
+      'Nobody may touch the ball twice in a row. Count every touch out loud together.',
+      'If the ball touches the water, the count stops. You have three attempts; your best count stands.',
+    ],
+    scoring: { success: '25 touches or more', partial: '15 to 24 touches', fail: 'Fewer than 15' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-cold-oath',
+    pack: 'resort',
+    title: 'The Cold Oath',
+    intro: 'Loyalty is easy in the sunshine. Swear it in the cold.',
+    props: ['The coldest of the four cold pools'],
+    time: 'About 3 minutes',
+    steps: [
+      'Everyone gets into the coldest pool together and stands in a line, water up to the shoulders. Anyone who does not want to get in becomes the timekeeper on the poolside, but counts as missing.',
+      'Going down the line, each player says one line of the oath below, loudly, while staying in: “I swear I am Faithful.” “I swear I am not a Traitor.” and so on, inventing their own oath in the same pattern.',
+      'Keep going round until 60 seconds have passed. Anyone who climbs out before the minute is up is missing.',
+    ],
+    scoring: { success: 'Everyone stays in for the full minute', partial: 'No more than two players missing', fail: 'Three or more missing' },
+    reward: 2500,
+  },
+  {
+    id: 'pool-ring-relay',
+    pack: 'resort',
+    title: 'Through the Eye of the Ring',
+    intro: 'Every guest must pass through the ring to prove they are who they say.',
+    props: ['The inflatable ring', 'A warm pool, standing depth', 'A phone stopwatch'],
+    time: '90 seconds',
+    steps: [
+      'Everyone stands in a line in the warm pool, holding hands with the players either side.',
+      'The ring starts on the first player’s arm. Without letting go of hands, pass the ring along the whole line: each player climbs through it (over the head, down the body, and out over a foot) and moves it on to the next player’s arm.',
+      'Letting go of hands sends the ring back to the start. The clock keeps running.',
+    ],
+    scoring: { success: 'The ring reaches the end in 90 seconds', partial: 'The ring passes more than half the line', fail: 'Less than half the line' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-penalties',
+    pack: 'resort',
+    title: 'Penalties at the Deep End',
+    intro: 'The keeper guards the gate. But whose side is the keeper on?',
+    props: ['The inflatable football', 'Two flip-flops to mark the goal', 'A warm pool, standing depth'],
+    time: 'About 5 minutes',
+    roles: { name: 'Keeper', duty: 'Guards the goal in the pool and must genuinely try to save every shot.' },
+    steps: [
+      'Put two flip-flops on the pool edge, two big steps apart. The keeper (named below) stands in the water between them, back to the wall.',
+      'Every other player takes one shot from the opposite side of the pool, or from four big steps away if the pool is wide. Throw the ball with both hands, overhead, like a football throw-in.',
+      'A goal is the ball touching the wall or edge between the flip-flops. The keeper may use any part of the body to block.',
+      'The keeper must try their best. The room may well wonder if they did.',
+    ],
+    scoring: { success: 'More than half the shots score', partial: 'At least a third of the shots score', fail: 'Fewer than a third' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-mime',
+    pack: 'resort',
+    title: 'The Silent Holiday',
+    intro: 'Every guest has a holiday story. Tell it without a word.',
+    props: ['Nothing (play in the shallow end or on the poolside)'],
+    time: 'About 6 minutes',
+    steps: [
+      'Six players are named below. Each has been sent a holiday moment on their phone.',
+      'In the order shown, each player mimes their moment for up to 45 seconds. No words, no sounds, no pointing at real objects.',
+      'Everyone else shouts guesses. The mimer nods when someone gets it close enough.',
+      'The host reveals each one on the screen afterwards.',
+    ],
+    prompts: { kind: 'secret', label: 'Holiday moments', count: 6, pool: RESORT_MIMES },
+    scoring: { success: '5 or 6 guessed', partial: '3 or 4 guessed', fail: '2 or fewer' },
+    reward: 1500,
+  },
+  {
+    id: 'pool-whisper',
+    pack: 'resort',
+    title: 'Whispers Across the Water',
+    intro: 'Gossip spreads fastest by the pool.',
+    props: ['Nothing'],
+    time: 'About 3 minutes',
+    roles: { name: 'First in line', duty: 'Has the gossip on their phone.' },
+    steps: [
+      'Everyone stands in a line in the shallow end of the warm pool (or along the poolside).',
+      'The first in line (named below) reads the gossip on their phone, puts the phone safely away from the water, and whispers it once to the next player.',
+      'Each player whispers what they heard once only. No repeats.',
+      'The last player says it out loud, then the host reveals the original.',
+    ],
+    prompts: { kind: 'secret', label: 'The gossip', count: 1, pool: POOL_WHISPERS },
+    scoring: { success: 'Word perfect', partial: 'No more than three words wrong or missing', fail: 'Four or more words wrong' },
+    reward: 1500,
+  },
+  {
+    id: 'pool-trivia',
+    pack: 'resort',
+    title: 'Secrets of the Kasbah',
+    intro: 'You are guests in Morocco. How well do you know your hosts?',
+    props: ['Nothing'],
+    time: 'About 4 minutes',
+    steps: [
+      'The host reads each question aloud from the screen.',
+      'The group has 30 seconds to agree one answer. No phones, no asking the waiters.',
+      'The host reveals the answer, then moves on. Five questions in total.',
+    ],
+    prompts: { kind: 'riddle', label: 'Questions', count: 5, pool: MOROCCO_TRIVIA },
+    scoring: { success: 'All 5 correct', partial: '3 or 4 correct', fail: '2 or fewer' },
+    reward: 2500,
+  },
+  {
+    id: 'pool-estimate',
+    pack: 'resort',
+    title: 'The Surveyor’s Eye',
+    intro: 'A good spy knows the ground without counting it.',
+    props: ['Nothing'],
+    time: 'About 3 minutes',
+    steps: [
+      'The host reads the question on the screen.',
+      'Without counting out loud or pointing, the group has 60 seconds to agree one number.',
+      'Then everyone counts it properly together, and the host checks the guess.',
+    ],
+    prompts: { kind: 'public', label: 'Estimate', count: 1, pool: ESTIMATES },
+    scoring: { success: 'Within 10% of the real number', partial: 'Within 25%', fail: 'Further out than that' },
+    reward: 1500,
+  },
+  {
+    id: 'pool-synchro',
+    pack: 'resort',
+    title: 'The Royal Water Ballet',
+    intro: 'The sultan demands a performance. It had better be graceful.',
+    props: ['A warm pool, standing depth', 'A neutral judge: a willing guest, a friend not playing, or a member of staff'],
+    time: '3 minutes to plan, 30 seconds to perform',
+    steps: [
+      'The group has three minutes to plan a 30-second synchronised routine on the theme shown on the screen. Standing depth only, no dives, no lifts above the shoulders.',
+      'Find a neutral judge who has not heard the theme.',
+      'Perform. The judge then says what they think the routine was, and gives a score out of 10.',
+    ],
+    prompts: { kind: 'public', label: 'Theme', count: 1, pool: SYNCHRO_THEMES },
+    scoring: { success: 'The judge names the theme, or scores 8 or more', partial: 'The judge scores 5 to 7', fail: 'The judge scores 4 or less' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-towel-art',
+    pack: 'resort',
+    title: 'The Housekeeper’s Secret',
+    intro: 'Every morning, the housekeeper leaves a towel creature on the bed. Today, you are the housekeeper.',
+    props: ['Two or three pool towels', 'Sunglasses, flip-flops or anything else from the sunbeds'],
+    time: '4 minutes to build',
+    roles: { name: 'Architect', duty: 'Knows the creature and directs the building, but may not touch the towels.' },
+    steps: [
+      'The architect (named below) has a towel creature on their phone. They must not say what it is.',
+      'Using only words like “fold”, “roll”, “twist”, “left” and “right”, the architect directs everyone else to build it from towels on a sunbed in four minutes.',
+      'Then find someone who is not playing and ask them what the creature is.',
+    ],
+    prompts: { kind: 'secret', label: 'The creature', count: 1, pool: TOWEL_SHAPES },
+    scoring: { success: 'The outsider names it first time', partial: 'The outsider names it within three guesses', fail: 'Not guessed' },
+    reward: 2000,
+  },
+  {
+    id: 'pool-temperature',
+    pack: 'resort',
+    title: 'Fire and Ice',
+    intro: 'Two warm pools, four cold. Only a true insider knows which is which.',
+    props: ['All six pools', 'A phone stopwatch'],
+    time: 'About 6 minutes',
+    steps: [
+      'Stand together at the warmest pool. Everyone predicts aloud, without testing, the order of the other five pools from warmest to coldest. Agree one order as a group.',
+      'Walk (never run) to each pool in turn. One volunteer dips a foot in each and the group ranks them as you go.',
+      'Compare the group’s first prediction with the order you found. Score one point for each pool in exactly the right place.',
+    ],
+    scoring: { success: '4 or 5 pools in the right place', partial: '2 or 3 in the right place', fail: '1 or none' },
+    reward: 1500,
+  },
+];

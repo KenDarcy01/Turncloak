@@ -1,4 +1,4 @@
-import { MISSIONS, missionById } from './missions';
+import { MISSIONS, missionById, packOf } from './missions';
 import type { Action, BanishmentState, GameState, MissionState, Player, Role, Settings, Team } from './types';
 
 export interface Ctx {
@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   finalCount: 4,
   voteSeconds: 60,
   discussionSeconds: 300,
+  missionPack: 'resort',
 };
 
 export function newGame(code: string): GameState {
@@ -128,8 +129,9 @@ export function checkWinner(s: GameState): Team | null {
 }
 
 function nextMission(s: GameState, rng: () => number): string {
-  let pool = MISSIONS.filter((m) => !s.usedMissions.includes(m.id));
-  if (pool.length === 0) pool = MISSIONS;
+  const pack = MISSIONS.filter((m) => packOf(m) === (s.settings.missionPack ?? 'castle'));
+  let pool = pack.filter((m) => !s.usedMissions.includes(m.id));
+  if (pool.length === 0) pool = pack;
   return pick(pool, rng).id;
 }
 

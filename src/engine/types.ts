@@ -30,6 +30,8 @@ export interface Settings {
   finalCount: number;
   voteSeconds: number;
   discussionSeconds: number;
+  /** Which set of missions to draw from. */
+  missionPack: 'castle' | 'resort';
 }
 
 export interface MissionItemState {

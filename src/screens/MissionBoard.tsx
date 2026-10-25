@@ -1,5 +1,6 @@
 import { playerById } from '../engine/game';
-import { missionById } from '../engine/missions';
+import { missionById, packOf } from '../engine/missions';
+import { POOL_SAFETY } from '../engine/missions-resort';
 import type { Action, GameState } from '../engine/types';
 import { Gold, useNow } from '../ui/components';
 
@@ -23,9 +24,11 @@ export function MissionBoard({ view, send }: { view: GameState; send: (a: Action
         <div className="mission-facts">
           <div><span className="k">Reward</span> <Gold amount={card.reward} /></div>
           <div><span className="k">Time</span> {card.time}</div>
-          <div><span className="k">You need</span> {card.props.join(', ')}</div>
+          <div><span className="k">You need</span> {card.props.join(' · ')}</div>
         </div>
       </div>
+
+      {packOf(card) === 'resort' && <div className="safety">{POOL_SAFETY}</div>}
 
       <div className="mission-cols">
         <div className="panel">

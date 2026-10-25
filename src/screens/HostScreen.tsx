@@ -9,6 +9,7 @@ import {
   tally,
   traitorCountFor,
 } from '../engine/game';
+import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
@@ -88,6 +89,17 @@ function Stage({ view, send, joinUrl, compact }: { view: GameState; send: (a: Ac
                 <option value={1}>1</option>
                 <option value={2}>2</option>
                 <option value={3}>3</option>
+              </select>
+            </label>
+            <label className="row muted" style={{ fontSize: '0.9rem' }}>
+              Missions
+              <select
+                className="field"
+                style={{ width: 'auto', padding: '6px 10px', fontSize: '0.95rem' }}
+                value={view.settings.missionPack}
+                onChange={(e) => send({ type: 'updateSettings', settings: { missionPack: e.target.value as MissionPack } })}
+              >
+                {MISSION_PACKS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>
             <button className="btn primary" disabled={n < MIN_PLAYERS} onClick={() => send({ type: 'start' })}>

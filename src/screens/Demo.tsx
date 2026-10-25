@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { makeCode } from '../engine/game';
+import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Role } from '../engine/types';
 import { TV } from '../engine/view';
 import { LocalHost } from '../net/backend';
@@ -14,14 +15,15 @@ const ME = 'you';
  * fill the other seats.
  */
 export function Demo() {
-  const [setup, setSetup] = useState<{ name: string; bots: number; role: Role | 'random' } | null>(null);
+  const [setup, setSetup] = useState<{ name: string; bots: number; role: Role | 'random'; pack: MissionPack } | null>(null);
   return setup ? <DemoGame {...setup} onQuit={() => setSetup(null)} /> : <DemoSetup onStart={setSetup} />;
 }
 
-function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; role: Role | 'random' }) => void }) {
+function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; role: Role | 'random'; pack: MissionPack }) => void }) {
   const [name, setName] = useState('');
   const [bots, setBots] = useState(7);
   const [role, setRole] = useState<Role | 'random'>('random');
+  const [pack, setPack] = useState<MissionPack>('resort');
   return (
     <div className="castle home">
       <Logo tagline />
@@ -46,7 +48,16 @@ function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; rol
             ))}
           </div>
         </div>
-        <button className="btn primary block" onClick={() => onStart({ name: name.trim() || 'You', bots, role })}>
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="eyebrow">Missions</span>
+          <div className="seg">
+            {MISSION_PACKS.map((p) => (
+              <button key={p.id} className={pack === p.id ? 'on' : ''} onClick={() => setPack(p.id)}>{p.name}</button>
+            ))}
+          </div>
+          <span className="muted" style={{ fontSize: '0.95rem' }}>{MISSION_PACKS.find((p) => p.id === pack)?.blurb}</span>
+        </div>
+        <button className="btn primary block" onClick={() => onStart({ name: name.trim() || 'You', bots, role, pack })}>
           Enter the castle
         </button>
         <a className="muted center" href="#/home">About Turncloak</a>
@@ -55,7 +66,7 @@ function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; rol
   );
 }
 
-function DemoGame({ name, bots, role, onQuit }: { name: string; bots: number; role: Role | 'random'; onQuit: () => void }) {
+function DemoGame({ name, bots, role, pack, onQuit }: { name: string; bots: number; role: Role | 'random'; pack: MissionPack; onQuit: () => void }) {
   const host = useMemo(() => new LocalHost(makeCode(), { persist: false }), []);
   const [tab, setTab] = useState<'tv' | 'phone'>('tv');
 
@@ -63,6 +74,7 @@ function DemoGame({ name, bots, role, onQuit }: { name: string; bots: number; ro
     const a = host.authority;
     a.dispatch({ type: 'join', playerId: ME, name });
     for (let i = 0; i < bots; i++) a.dispatch({ type: 'addBot' });
+    a.dispatch({ type: 'updateSettings', settings: { missionPack: pack } });
     // Honour the chosen role by swapping with a bot once roles are dealt.
     const off = a.subscribe((s) => {
       if (role === 'random' || s.phase !== 'roleReveal' || s.roles[ME] === role) return;
@@ -73,7 +85,7 @@ function DemoGame({ name, bots, role, onQuit }: { name: string; bots: number; ro
       off();
       host.destroy();
     };
-  }, [host, name, bots, role]);
+  }, [host, name, bots, role, pack]);
 
   const tv = useMemo(() => host.connect(TV), [host]);
   const me = useMemo(() => host.connect(ME), [host]);

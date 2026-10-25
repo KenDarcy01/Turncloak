@@ -209,3 +209,15 @@ describe('missions', () => {
     }
   });
 });
+
+describe('mission packs', () => {
+  it('only draws missions from the chosen pack', () => {
+    for (const pack of ['castle', 'resort'] as const) {
+      let { s, ctx } = setup(6);
+      s = { ...s, settings: { ...s.settings, missionPack: pack } };
+      s = reduce(s, { type: 'advance' }, ctx);
+      const card = MISSIONS.find((m) => m.id === s.mission!.cardId)!;
+      expect(card.pack ?? 'castle').toBe(pack);
+    }
+  });
+});
