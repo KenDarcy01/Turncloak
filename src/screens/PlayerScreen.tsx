@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { alive, eligibleVoters, murderTargets, playerById, voteTargets } from '../engine/game';
+import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
 import type { GameConnection } from '../net/backend';
 import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/components';
@@ -98,7 +99,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       return <Wait eyebrow={`Day ${view.day} · Breakfast`} title="Watch the big screen" lead="Who survived the night?" />;
 
     case 'mission':
-      return <Wait eyebrow={`Day ${view.day} · Mission`} title="Mission time" lead="Listen to the host and play your part. Or quietly sabotage it." />;
+      return <MissionPhone view={view} me={me} traitor={traitor} />;
 
     case 'roundtable':
       return (
@@ -267,6 +268,42 @@ function EndVote({ view, me, send }: { view: GameState; me: Player; send: (a: Ac
         Banish again
       </button>
       {mine && <p className="muted center">Your choice is locked.</p>}
+    </div>
+  );
+}
+
+/** Your part in the mission, including any secret prompt only you can see. */
+function MissionPhone({ view, me, traitor }: { view: GameState; me: Player; traitor: boolean }) {
+  const m = view.mission!;
+  const card = missionById(m.cardId);
+  const mine = m.items.map((it, i) => ({ ...it, i })).filter((it) => it.assignee === me.id && it.text);
+  const myRole = card.roles && m.roleHolders.includes(me.id) ? card.roles : null;
+  const rounds = (card.prompts?.count ?? 0) > 1;
+  return (
+    <div className="stack">
+      <div className="eyebrow">Day {view.day} · Mission</div>
+      <h2>{card.title}</h2>
+      {myRole && (
+        <div className="banner">
+          <div className="eyebrow">You are the {myRole.name.toLowerCase()}</div>
+          <div>{myRole.duty}</div>
+        </div>
+      )}
+      {mine.map((it) => (
+        <div className="secret-card" key={it.i}>
+          <div className="eyebrow">
+            Only you can see this{rounds ? ` · your turn is number ${it.i + 1}` : ''}
+          </div>
+          <div className="prompt-text">{it.text}</div>
+          <div className="muted">Keep it to yourself until it is your turn.</div>
+        </div>
+      ))}
+      {!myRole && mine.length === 0 && <p className="lead">Follow the instructions on the big screen.</p>}
+      <p className="muted">
+        {traitor
+          ? 'A failed mission means less gold for the Faithful. Sabotage it if you dare, but do not get caught.'
+          : 'Every success adds gold to the pot. Watch for anyone who seems to be holding the team back.'}
+      </p>
     </div>
   );
 }

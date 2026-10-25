@@ -1,4 +1,5 @@
 import { endgameReady } from './game';
+import { missionById } from './missions';
 import type { GameState, Role } from './types';
 
 export const TV = 'tv';
@@ -49,6 +50,7 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   return {
     ...s,
+    mission: missionFor(s, viewer),
     roles,
     votes,
     banishment,
@@ -70,4 +72,17 @@ function hideUnrevealedMurder(s: GameState, viewer: string): GameState {
     players: s.players.map((p) => (p.id === victim ? { ...p, alive: true, out: undefined } : p)),
     log: s.log.filter((l) => !(l.day === s.day && l.text.includes('murdered'))),
   };
+}
+
+/** Secret prompts reach only their player; answers stay hidden until the host reveals them. */
+function missionFor(s: GameState, viewer: string): GameState['mission'] {
+  const m = s.mission;
+  if (!m) return m;
+  const kind = missionById(m.cardId).prompts?.kind;
+  const items = m.items.map((it) => {
+    if (it.revealed) return it;
+    const hideText = (kind === 'secret' && it.assignee !== viewer) || (kind === 'memory' && viewer !== TV);
+    return { ...it, text: hideText ? '' : it.text, answer: undefined };
+  });
+  return { ...m, items };
 }

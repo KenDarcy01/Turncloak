@@ -1,5 +1,5 @@
-import { MISSIONS } from './missions';
-import type { Action, BanishmentState, GameState, Player, Role, Settings, Team } from './types';
+import { MISSIONS, missionById } from './missions';
+import type { Action, BanishmentState, GameState, MissionState, Player, Role, Settings, Team } from './types';
 
 export interface Ctx {
   rng: () => number;
@@ -144,12 +144,30 @@ function finish(s: GameState, winner: Team): GameState {
   );
 }
 
+/** Draw this play's prompts and choose who does what. */
+export function dealMission(s: GameState, cardId: string, rng: () => number): MissionState {
+  const card = missionById(cardId);
+  const players = shuffle(aliveIds(s), rng);
+  const roleHolders = card.roles ? players.slice(0, card.roles.count ?? 1) : [];
+  const set = card.prompts;
+  const drawn = set ? shuffle(set.pool, rng).slice(0, set.count) : [];
+  // Secret prompts go to the role holders if the card has a role, otherwise to different players in turn.
+  const holders = roleHolders.length ? roleHolders : players;
+  const items = drawn.map((item, i) => ({
+    text: item.text,
+    answer: item.answer,
+    assignee: set?.kind === 'secret' && holders.length ? holders[i % holders.length] : undefined,
+    revealed: set?.kind === 'public',
+  }));
+  return { cardId, result: 'pending', earned: 0, roleHolders, items, showUntil: null };
+}
+
 function enterMission(s: GameState, ctx: Ctx): GameState {
   const cardId = nextMission(s, ctx.rng);
   return {
     ...s,
     phase: 'mission',
-    mission: { cardId, result: 'pending', earned: 0 },
+    mission: dealMission(s, cardId, ctx.rng),
     usedMissions: [...s.usedMissions, cardId],
     timerEndsAt: null,
   };
@@ -357,6 +375,16 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       const earned = a.result === 'success' ? card.reward : a.result === 'partial' ? Math.round(card.reward / 2) : 0;
       const prev = s.mission.earned;
       return { ...s, pot: s.pot - prev + earned, mission: { ...s.mission, result: a.result, earned } };
+    }
+    case 'missionReveal': {
+      if (s.phase !== 'mission' || !s.mission) return s;
+      const items = s.mission.items.map((it, i) => (a.index === -1 || a.index === i ? { ...it, revealed: true } : it));
+      return { ...s, mission: { ...s.mission, items } };
+    }
+    case 'missionShow': {
+      if (s.phase !== 'mission' || !s.mission) return s;
+      const secs = missionById(s.mission.cardId).prompts?.showSeconds ?? 20;
+      return { ...s, mission: { ...s.mission, showUntil: ctx.now + secs * 1000 } };
     }
     case 'startTimer':
       return { ...s, timerEndsAt: ctx.now + a.seconds * 1000 };

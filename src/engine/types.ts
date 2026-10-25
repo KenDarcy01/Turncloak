@@ -32,10 +32,24 @@ export interface Settings {
   discussionSeconds: number;
 }
 
+export interface MissionItemState {
+  text: string;
+  answer?: string;
+  /** For secret prompts: the only player who may see the text before it is revealed. */
+  assignee?: string;
+  revealed: boolean;
+}
+
 export interface MissionState {
   cardId: string;
   result: 'pending' | 'success' | 'partial' | 'fail';
   earned: number;
+  /** Players chosen for the card's special job (witness, keyholder...). */
+  roleHolders: string[];
+  /** The prompts drawn for this play of the mission. */
+  items: MissionItemState[];
+  /** For memory missions: when the items stop being shown on the TV. */
+  showUntil: number | null;
 }
 
 export interface BanishmentState {
@@ -102,6 +116,10 @@ export type Action =
   | { type: 'start' }
   | { type: 'advance' }
   | { type: 'missionResult'; result: 'success' | 'partial' | 'fail' }
+  /** Reveal one prompt on the TV (an answer, a secret tune), or all of them with index -1. */
+  | { type: 'missionReveal'; index: number }
+  /** Memory missions: show the items for the card's showSeconds. */
+  | { type: 'missionShow' }
   | { type: 'startTimer'; seconds: number }
   | { type: 'clearTimer' }
   | { type: 'castVote'; playerId: string; targetId: string }
@@ -120,6 +138,8 @@ export const HOST_ACTIONS: Action['type'][] = [
   'start',
   'advance',
   'missionResult',
+  'missionReveal',
+  'missionShow',
   'startTimer',
   'clearTimer',
   'closeVoting',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { botActions } from './bots';
-import { aliveIds, aliveTraitors, checkWinner, murderTargets, newGame, reduce, type Ctx } from './game';
+import { aliveIds, aliveTraitors, checkWinner, dealMission, murderTargets, newGame, reduce, type Ctx } from './game';
+import { MISSIONS } from './missions';
 import type { Action, GameState } from './types';
 import { HIDDEN, TV, viewFor } from './view';
 
@@ -167,5 +168,44 @@ describe('views', () => {
     const night = { ...s, phase: 'night' as const };
     const t = aliveTraitors(night)[0].id;
     expect(murderTargets(viewFor(night, t)).sort()).toEqual(murderTargets(night).sort());
+  });
+});
+
+describe('missions', () => {
+  it('sends a secret prompt only to its player, until revealed', () => {
+    const { s: base, ctx } = setup(8);
+    const s = { ...base, phase: 'mission' as const, mission: dealMission(base, 'minstrel-hum', ctx.rng) };
+    expect(s.mission!.items).toHaveLength(6);
+    const first = s.mission!.items[0];
+    const other = aliveIds(s).find((id) => id !== first.assignee)!;
+    expect(viewFor(s, first.assignee!).mission!.items[0].text).toBe(first.text);
+    expect(viewFor(s, other).mission!.items[0].text).toBe('');
+    expect(viewFor(s, TV).mission!.items[0].text).toBe('');
+    const revealed = reduce(s, { type: 'missionReveal', index: 0 }, ctx);
+    expect(viewFor(revealed, TV).mission!.items[0].text).toBe(first.text);
+  });
+
+  it('gives secret prompts to the role holder', () => {
+    const { s, ctx } = setup(6);
+    const m = dealMission(s, 'portrait-hall', ctx.rng);
+    expect(m.roleHolders).toHaveLength(1);
+    expect(m.items[0].assignee).toBe(m.roleHolders[0]);
+  });
+
+  it('hides riddle answers until revealed', () => {
+    const { s: base, ctx } = setup(6);
+    const s = { ...base, phase: 'mission' as const, mission: dealMission(base, 'riddle-gate', ctx.rng) };
+    expect(viewFor(s, TV).mission!.items[0].text).not.toBe('');
+    expect(viewFor(s, TV).mission!.items[0].answer).toBeUndefined();
+    const r = reduce(s, { type: 'missionReveal', index: 0 }, ctx);
+    expect(viewFor(r, TV).mission!.items[0].answer).toBeTruthy();
+  });
+
+  it('every mission card deals without error', () => {
+    const { s, ctx } = setup(4);
+    for (const card of MISSIONS) {
+      const m = dealMission(s, card.id, ctx.rng);
+      expect(m.items.length).toBe(card.prompts?.count ?? 0);
+    }
   });
 });

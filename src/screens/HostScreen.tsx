@@ -9,11 +9,11 @@ import {
   tally,
   traitorCountFor,
 } from '../engine/game';
-import { missionById } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
 import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
+import { MissionBoard } from './MissionBoard';
 
 interface Props {
   conn: GameConnection;
@@ -140,26 +140,12 @@ function Stage({ view, send, joinUrl, compact }: { view: GameState; send: (a: Ac
 
     case 'mission': {
       const m = view.mission!;
-      const card = missionById(m.cardId);
       const r = m.result;
       return (
         <>
-          <div className="tv-stage">
+          <div className="tv-stage mission-stage">
             <div className="eyebrow">Day {view.day} · Mission</div>
-            <div className="panel mission-card fade-in">
-              <h2>{card.title}</h2>
-              <p className="brief">{card.brief}</p>
-              <p className="goal">Success: {card.goal}</p>
-              <div className="row">
-                <span className="muted">Reward</span>
-                <Gold amount={card.reward} />
-                {r !== 'pending' && (
-                  <span className="spacer" style={{ textAlign: 'right' }}>
-                    {m.earned > 0 ? <span className="gold">+{m.earned.toLocaleString()} to the pot</span> : <span className="red">Nothing earned</span>}
-                  </span>
-                )}
-              </div>
-            </div>
+            <MissionBoard view={view} send={send} />
           </div>
           <Controls hint="Record the result">
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
