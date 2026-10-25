@@ -1,46 +1,65 @@
-import { aliveIds, eligibleVoters, murderTargets, voteTargets } from './game';
-import type { Action, GameState } from './types';
+import { alive, aliveIds, eligibleVoters, murderTargets, playerById, reduce, voteTargets, type Ctx } from './game';
+import type { Action, GameState, TalkLine } from './types';
 
 /**
- * Simple stand-in players for demos and testing. Returns every action the bots
- * still owe in the current phase; the runtime spaces them out so they feel human.
+ * Stand-in players, so a small group can still have a full castle. Bots vote,
+ * murder, keep a night diary and argue at the Round Table. They have no hidden
+ * knowledge beyond their own role (and fellow Traitors, if they are one).
  */
+
+const pickOf = <T,>(arr: T[], rng: () => number) => arr[Math.floor(rng() * arr.length)];
+
+/** The latest thing each bot said this Round Table, keyed by speaker. */
+function talkToday(s: GameState): TalkLine[] {
+  return s.talk.filter((l) => l.day === s.day && l.at >= s.phaseSince);
+}
+
+/** Who a bot would like to see banished, from what it said or a fresh suspicion. */
+function suspectFor(s: GameState, botId: string, rng: () => number, among = aliveIds(s)): string | undefined {
+  const options = among.filter((id) => id !== botId);
+  if (!options.length) return undefined;
+  const isTraitor = s.roles[botId] === 'traitor';
+  // Traitors steer suspicion onto Faithful players.
+  const pool = isTraitor ? options.filter((id) => s.roles[id] !== 'traitor') : options;
+  const usable = pool.length ? pool : options;
+  const said = [...s.talk].reverse().find((l) => l.from === botId && l.day === s.day && l.target)?.target;
+  if (said && usable.includes(said) && rng() < 0.75) return said;
+  return pickOf(usable, rng);
+}
+
+/** Every action the bots still owe in the current phase. */
 export function botActions(s: GameState, rng: () => number): Action[] {
   const bots = s.players.filter((p) => p.isBot && p.alive);
   const out: Action[] = [];
-  const pick = <T,>(arr: T[]) => arr[Math.floor(rng() * arr.length)];
 
   if (s.phase === 'vote') {
     const voters = eligibleVoters(s);
     for (const b of bots) {
       if (!voters.includes(b.id) || s.votes[b.id]) continue;
-      let targets = voteTargets(s, b.id);
-      // Traitors avoid voting for each other when they can.
-      if (s.roles[b.id] === 'traitor') {
-        const faithful = targets.filter((t) => s.roles[t] !== 'traitor');
-        if (faithful.length) targets = faithful;
-      } else {
-        // Faithful bots pile on whoever already has votes, as people do.
-        const leaning = Object.values(s.votes).filter((t) => targets.includes(t));
-        if (leaning.length && rng() < 0.5) targets = leaning;
-      }
-      if (targets.length) out.push({ type: 'castVote', playerId: b.id, targetId: pick(targets) });
+      const targets = voteTargets(s, b.id);
+      // Faithful bots sometimes pile on whoever already has votes, as people do.
+      const leaning = Object.values(s.votes).filter((t) => targets.includes(t) && t !== b.id);
+      const target =
+        s.roles[b.id] !== 'traitor' && leaning.length && rng() < 0.35
+          ? pickOf(leaning, rng)
+          : suspectFor(s, b.id, rng, targets);
+      if (target) out.push({ type: 'castVote', playerId: b.id, targetId: target });
     }
   }
 
   if (s.phase === 'night') {
     const targets = murderTargets(s);
-    const humanPick = Object.entries(s.nightPicks).find(([id]) => !s.players.find((p) => p.id === id)?.isBot)?.[1];
+    const humanPick = Object.entries(s.nightPicks).find(([id]) => !playerById(s, id)?.isBot)?.[1];
     for (const b of bots) {
       if (s.roles[b.id] === 'traitor') {
         if (!targets.length) continue;
         // Follow a human Traitor's lead, otherwise agree with the first Traitor to choose.
         if (s.nightPicks[b.id] && (!humanPick || s.nightPicks[b.id] === humanPick)) continue;
         const lead = humanPick ?? Object.values(s.nightPicks)[0];
-        out.push({ type: 'nightPick', playerId: b.id, targetId: lead ?? pick(targets) });
+        out.push({ type: 'nightPick', playerId: b.id, targetId: lead ?? pickOf(targets, rng) });
       } else if (!s.suspicions[b.id]) {
         const others = aliveIds(s).filter((id) => id !== b.id);
-        if (others.length) out.push({ type: 'suspect', playerId: b.id, targetId: pick(others) });
+        if (others.length) out.push({ type: 'suspect', playerId: b.id, targetId: pickOf(others, rng) });
       }
     }
   }
@@ -56,11 +75,111 @@ export function botActions(s: GameState, rng: () => number): Action[] {
   return out;
 }
 
-/** Bots in the Traitors' chat now and then, so the chat feels alive in a demo. */
+const ACCUSE = [
+  'I have been watching {t}. Every time the Traitors come up, {t} goes very quiet.',
+  '{t}, you went very quiet during the mission. What were you thinking about?',
+  'My gut says {t}. I cannot explain it, but my gut has never lied to me.',
+  '{t} looks far too relaxed for someone in a castle full of Traitors.',
+  'I am Faithful, hand on heart. And I do not trust {t} one bit.',
+  'Did anyone else notice {t} barely tried in the mission? That was not an accident.',
+  '{t} keeps agreeing with whoever spoke last. That is how a Traitor hides.',
+  'If {t} is Faithful, I will apologise at breakfast. But I am voting {t}.',
+  'Watch {t}\u2019s eyes when the word Traitor is said. Just watch.',
+  'Everyone is looking at the loud ones. Look at {t} instead. Too careful. Too clean.',
+];
+
+const AGREE = [
+  'I agree with {s}. {t} has questions to answer.',
+  '{s} is right. I had the same feeling about {t} this morning.',
+  'I was not sure until {s} said it. But yes, {t}.',
+];
+
+const DEFEND = [
+  'I can hear my name being said. I have been Faithful since the very first night, and I will prove it.',
+  'Banish me and you lose a Faithful. Then the Traitors laugh all the way to breakfast.',
+  'Of course you suspect me. That is exactly what the Traitors want you to do.',
+];
+
+const fill = (tpl: string, t?: string, sp?: string) => tpl.replaceAll('{t}', t ?? 'someone').replaceAll('{s}', sp ?? 'them');
+
+/** One line of Round Table argument from a bot that has not spoken much yet. */
+function speak(s: GameState, ctx: Ctx): TalkLine | null {
+  const today = talkToday(s);
+  const bots = alive(s).filter((p) => p.isBot && today.filter((l) => l.from === p.id).length < 2);
+  if (!bots.length) return null;
+  const bot = pickOf(bots, ctx.rng);
+  const name = (id?: string) => playerById(s, id)?.name;
+
+  // Defend if someone just accused this bot.
+  const accused = today.some((l) => l.target === bot.id);
+  if (accused && ctx.rng() < 0.6) {
+    return { from: bot.id, text: pickOf(DEFEND, ctx.rng), day: s.day, at: ctx.now };
+  }
+  // Sometimes back up a recent accusation, if it suits the bot.
+  const recent = today.filter((l) => l.target && l.target !== bot.id).slice(-3);
+  const backing = recent.length ? pickOf(recent, ctx.rng) : null;
+  const suitsMe = backing && (s.roles[bot.id] !== 'traitor' || s.roles[backing.target!] !== 'traitor');
+  if (backing && suitsMe && ctx.rng() < 0.4) {
+    return {
+      from: bot.id,
+      text: fill(pickOf(AGREE, ctx.rng), name(backing.target), name(backing.from)),
+      target: backing.target,
+      day: s.day,
+      at: ctx.now,
+    };
+  }
+  const target = suspectFor(s, bot.id, ctx.rng);
+  if (!target) return null;
+  // Avoid repeating a line already heard today.
+  const heard = new Set(today.map((l) => l.text.replaceAll(name(l.target) ?? '\u0000', '{t}')));
+  const fresh = ACCUSE.filter((t) => !heard.has(t));
+  const tpl = pickOf(fresh.length ? fresh : ACCUSE, ctx.rng);
+  return { from: bot.id, text: fill(tpl, name(target)), target, day: s.day, at: ctx.now };
+}
+
+/** Lines a bot Traitor whispers to a human Traitor at night. */
 export const BOT_TRAITOR_LINES = [
   'Keep your face still at breakfast.',
   'Not the loud one. Everyone already suspects them.',
   'We vote together, but not too obviously.',
-  'I could cry at the Round Table if it helps.',
+  'I will point at someone else tomorrow. Back me up.',
   'Agreed. Let’s be quick about it.',
 ];
+
+/**
+ * Called on every host tick. Bots act at a human pace, an expired vote closes,
+ * and bots speak at the Round Table.
+ */
+export function botTick(s: GameState, ctx: Ctx): GameState {
+  const elapsed = ctx.now - (s.phaseSince || 0);
+  let next = s;
+
+  if (s.phase === 'vote' && s.timerEndsAt && ctx.now > s.timerEndsAt) {
+    return reduce(s, { type: 'closeVoting' }, ctx);
+  }
+
+  // At night, give a human Traitor time to choose first.
+  const minWait = s.phase === 'night' ? 7000 : 2500;
+  if (elapsed >= minWait) {
+    for (const a of botActions(next, ctx.rng)) {
+      if (ctx.rng() < 0.3) next = reduce(next, a, ctx);
+    }
+  }
+
+  if (s.phase === 'roundtable' && elapsed > 3000 && ctx.rng() < 0.4) {
+    const line = speak(next, ctx);
+    if (line) next = { ...next, talk: [...next.talk, line] };
+  }
+
+  if (s.phase === 'night' && elapsed > 4000) {
+    const traitors = alive(s).filter((p) => s.roles[p.id] === 'traitor');
+    const humanTraitor = traitors.some((p) => !p.isBot);
+    const bot = traitors.find((p) => p.isBot);
+    const spokeTonight = s.traitorChat.some((m) => m.at >= s.phaseSince && playerById(s, m.from)?.isBot);
+    if (humanTraitor && bot && !spokeTonight && ctx.rng() < 0.3) {
+      next = reduce(next, { type: 'traitorChat', playerId: bot.id, text: pickOf(BOT_TRAITOR_LINES, ctx.rng) }, ctx);
+    }
+  }
+
+  return next;
+}

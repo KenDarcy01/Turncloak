@@ -53,15 +53,14 @@ alter table public.game_views enable row level security;
 create policy "games are readable by signed in users"
   on public.games for select to authenticated using (true);
 
-create policy "hosts create their own games"
-  on public.games for insert to authenticated with check (host_user_id = auth.uid());
-
 -- Security definer so the policy below does not recurse into game_players' own RLS.
 create function public.is_at_table(gid uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (select 1 from public.game_players where game_id = gid and user_id = auth.uid())
       or exists (select 1 from public.games where id = gid and host_user_id = auth.uid());
 $$;
+revoke execute on function public.is_at_table(uuid) from public, anon;
+grant execute on function public.is_at_table(uuid) to authenticated;
 
 -- Players can see who else is in their game.
 create policy "players see their table"

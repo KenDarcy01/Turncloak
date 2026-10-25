@@ -65,6 +65,16 @@ export interface BanishmentState {
   banishedId: string | null;
 }
 
+/** Something said out loud at the Round Table by a bot, shown on every screen. */
+export interface TalkLine {
+  from: string;
+  text: string;
+  /** Who the line accuses, if anyone. Bots tend to vote the way they talk. */
+  target?: string;
+  day: number;
+  at: number;
+}
+
 export interface ChatMessage {
   from: string;
   text: string;
@@ -103,6 +113,11 @@ export interface GameState {
   endVotes: Record<string, 'end' | 'banish'>;
   winner: Team | null;
 
+  /** Bot speeches at the Round Table, for the whole game. Public. */
+  talk: TalkLine[];
+  /** Epoch millis when the current phase began. Paces the bots. */
+  phaseSince: number;
+
   /** Epoch millis when the current timer runs out, if any. */
   timerEndsAt: number | null;
   log: { day: number; text: string }[];
@@ -131,7 +146,9 @@ export type Action =
   | { type: 'traitorChat'; playerId: string; text: string }
   | { type: 'suspect'; playerId: string; targetId: string }
   | { type: 'endVote'; playerId: string; choice: 'end' | 'banish' }
-  | { type: 'restart' };
+  | { type: 'restart' }
+  /** Sent by the host screen every second or two: bots act, and an expired vote closes. */
+  | { type: 'botTick' };
 
 /** Actions that only the host screen may send. Everything else carries a playerId. */
 export const HOST_ACTIONS: Action['type'][] = [
@@ -147,4 +164,5 @@ export const HOST_ACTIONS: Action['type'][] = [
   'closeVoting',
   'revealNext',
   'restart',
+  'botTick',
 ];

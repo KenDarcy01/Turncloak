@@ -1,18 +1,16 @@
 // Edge function: the only writer of game state in online mode.
 //
-// DRAFT: not yet deployed or tested against a live project.
-//
 // POST { code, action }  with the caller's Supabase auth token.
 // 1. Load the full state for the game (service role, bypasses RLS).
 // 2. Check the caller may send this action (host-only actions, own playerId).
-// 3. Run the shared reducer from src/engine (copied into ../_shared/engine by
+// 3. Run the shared reducer from src/engine (copied into ./engine by
 //    `npm run sync:engine` before deploy).
 // 4. Write the new state, then upsert one redacted view per screen. RLS on
 //    game_views means each phone can only ever read its own row.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { newGame, reduce } from '../_shared/engine/game.ts';
-import { HOST_ACTIONS, type Action, type GameState } from '../_shared/engine/types.ts';
-import { TV, viewFor } from '../_shared/engine/view.ts';
+import { newGame, reduce } from './engine/game.ts';
+import { HOST_ACTIONS, type Action, type GameState } from './engine/types.ts';
+import { TV, viewFor } from './engine/view.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +30,8 @@ Deno.serve(async (req) => {
 
   if (action.type === 'create') {
     const { data: game, error } = await admin.from('games').insert({ code, host_user_id: uid }).select().single();
-    if (error) return json({ error: error.message }, 400);
+    // 23505: the code is taken. The client picks another and retries.
+    if (error) return json({ error: error.code === '23505' ? 'code taken' : error.message }, error.code === '23505' ? 409 : 400);
     const state = newGame(code);
     await admin.from('game_state').insert({ game_id: game.id, state, rev: 0 });
     await writeViews(admin, game.id, uid, state);

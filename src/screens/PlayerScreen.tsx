@@ -4,6 +4,7 @@ import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
 import type { GameConnection } from '../net/backend';
 import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/components';
+import { TableTalk } from './HostScreen';
 
 /** A player's phone. Everything here is private to that player. */
 export function PlayerScreen({ conn, name }: { conn: GameConnection; name?: string }) {
@@ -109,6 +110,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
           lead={traitor ? 'Blend in. Cast suspicion on a Faithful.' : 'Who has been acting strangely?'}
         >
           <Countdown endsAt={view.timerEndsAt} />
+          <TableTalk view={view} max={3} />
         </Wait>
       );
 

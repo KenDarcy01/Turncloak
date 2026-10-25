@@ -3,4 +3,6 @@ dist
 dist-preview
 .env*
 !.env.example
-supabase/functions/_shared/engine
+!.env.production
+supabase/functions/game-action/engine
+*.tsbuildinfo

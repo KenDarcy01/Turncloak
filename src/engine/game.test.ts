@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botActions } from './bots';
-import { aliveIds, aliveTraitors, checkWinner, dealMission, murderTargets, newGame, reduce, type Ctx } from './game';
+import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, reduce, type Ctx } from './game';
 import { MISSIONS } from './missions';
 import type { Action, GameState } from './types';
 import { HIDDEN, TV, viewFor } from './view';
@@ -218,6 +218,59 @@ describe('mission packs', () => {
       s = reduce(s, { type: 'advance' }, ctx);
       const card = MISSIONS.find((m) => m.id === s.mission!.cardId)!;
       expect(card.pack ?? 'castle').toBe(pack);
+    }
+  });
+});
+
+describe('bots', () => {
+  function botGame(humans: number, bots: number, seed: number) {
+    let now = 1_000_000;
+    const rng = seeded(seed);
+    const ctx = () => ({ rng, now });
+    let s = newGame('BOTS');
+    for (let i = 0; i < humans; i++) s = reduce(s, { type: 'join', playerId: `h${i}`, name: `H${i}` }, ctx());
+    for (let i = 0; i < bots; i++) s = reduce(s, { type: 'addBot' }, ctx());
+    s = reduce(s, { type: 'start' }, ctx());
+    return { s, step: (a: Action) => (s = reduce(s, a, ctx())), tick: (ms: number) => { now += ms; s = reduce(s, { type: 'botTick' }, ctx()); }, get: () => s };
+  }
+
+  it('argue at the Round Table, naming real players', () => {
+    const g = botGame(2, 6, 3);
+    g.step({ type: 'advance' });
+    g.step({ type: 'missionResult', result: 'success' });
+    g.step({ type: 'advance' });
+    for (let i = 0; i < 40; i++) g.tick(1500);
+    const talk = g.get().talk;
+    expect(talk.length).toBeGreaterThan(2);
+    for (const line of talk) {
+      expect(g.get().players.find((p) => p.id === line.from)!.isBot).toBe(true);
+      expect(line.text).not.toContain('{t}');
+    }
+  });
+
+  it('give mission jobs and secret prompts only to real players', () => {
+    const g = botGame(2, 6, 4);
+    for (let i = 0; i < 20; i++) {
+      const m = dealMission(g.get(), 'minstrel-hum', seeded(i));
+      for (const it of m.items) expect(it.assignee!.startsWith('h')).toBe(true);
+      const w = dealMission(g.get(), 'pool-penalties', seeded(i));
+      expect(w.roleHolders[0].startsWith('h')).toBe(true);
+    }
+  });
+
+  it('play whole games through host ticks alone', () => {
+    for (let seed = 1; seed <= 15; seed++) {
+      const g = botGame(0, 5 + (seed % 6), seed);
+      for (let i = 0; i < 3000 && g.get().phase !== 'gameOver'; i++) {
+        const s = g.get();
+        if (s.phase === 'mission' && s.mission?.result === 'pending') g.step({ type: 'missionResult', result: 'partial' });
+        else if (['roleReveal', 'breakfast', 'mission', 'banishment'].includes(s.phase)) g.step({ type: 'advance' });
+        else if (s.phase === 'roundtable') { g.tick(1500); if (i % 10 === 0) g.step({ type: 'advance' }); }
+        else if (s.phase === 'night') { g.tick(3000); if (i % 8 === 0) g.step({ type: 'advance' }); }
+        else if (s.phase === 'endgameVote') { g.tick(3000); if (endgameReady(s)) g.step({ type: 'advance' }); }
+        else g.tick(3000);
+      }
+      expect(g.get().phase).toBe('gameOver');
     }
   });
 });

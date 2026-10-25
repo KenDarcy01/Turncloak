@@ -14,7 +14,7 @@ npm run build:preview   # single-file build of the demo (dist-preview/)
 ```
 
 - `#/demo` plays a whole game on one screen: you run the host screen and hold one phone, bots fill the other seats.
-- `#/host/ABCD` opens a host screen; `#/join/ABCD` joins from another tab. In local mode the host and the players must be tabs in the same browser (they talk over BroadcastChannel). Real phones across a room need the Supabase backend below.
+- `#/host/ABCD` opens a host screen; `#/join/ABCD` joins. Without Supabase settings (local mode) the host and players must be tabs in the same browser. With them, phones join from anywhere.
 
 ## How a game runs
 
@@ -47,18 +47,19 @@ supabase/       Online backend draft: schema, RLS, edge function
 
 `viewFor()` is the single place that decides who knows what: the TV sees public information, a Faithful sees only their own role, a Traitor also sees fellow Traitors, the murder pick and the Traitor chat. Votes stay hidden until read out, and a murder victim looks alive until the breakfast reveal.
 
-## Online backend (Supabase) - drafted, not yet connected
+## Online play (Supabase)
 
-The plan keeps the game server-authoritative so a phone can never see more than it should:
+The hosted build (`npm run build`, published to GitHub Pages by `.github/workflows/pages.yml`) plays online through the Supabase project in `.env.production`:
 
-- Players sign in anonymously, so `auth.uid()` is the player id.
-- `game_state` holds the full secret state. It has RLS enabled and no client policies, so only the edge function (service role) can touch it.
-- `supabase/functions/game-action` receives every action, checks it (host-only actions, players acting only as themselves), runs the same reducer, then writes one redacted row per screen into `game_views`.
-- RLS on `game_views` lets each user read only their own row, and phones subscribe to it over Realtime, which respects RLS.
+- Everyone signs in as a guest (Supabase anonymous auth), so `auth.uid()` is the player id.
+- `game_state` holds the full secret state. RLS is on with no client policies, so only the `game-action` edge function (service role) can touch it.
+- `supabase/functions/game-action` receives every move, checks it (host-only actions, players acting only as themselves), runs the same reducer, then writes one redacted row per screen into `game_views`.
+- RLS on `game_views` lets each user read only their own row. Screens listen over Realtime and poll every few seconds as a fallback.
+- The host screen sends a `botTick` every two seconds while bots are in play, so bots vote, murder, speak at the Round Table, and expired votes close.
 
-Before deploying the function, run `npm run sync:engine` to copy `src/engine` into `supabase/functions/_shared/engine`.
+To change the rules on the server: edit `src/engine`, run `npm run sync:engine`, then redeploy the function (`supabase functions deploy game-action`).
 
-Still to do for online play: a `SupabaseBackend` implementing `GameConnection`, a scheduled job or host heartbeat to close timed votes (local mode does this in `Authority`), QR codes on the lobby screen, and reconnect handling.
+Bots sit out the physical missions: mission jobs and secret prompts only go to real players.
 
 ## Ideas queued for later
 

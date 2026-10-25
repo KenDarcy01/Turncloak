@@ -1,3 +1,4 @@
+import { botTick } from './bots';
 import { MISSIONS, missionById, packOf } from './missions';
 import type { Action, BanishmentState, GameState, MissionState, Player, Role, Settings, Team } from './types';
 
@@ -50,6 +51,8 @@ export function newGame(code: string): GameState {
     endVotes: {},
     winner: null,
     timerEndsAt: null,
+    talk: [],
+    phaseSince: 0,
     log: [],
     rev: 0,
   };
@@ -149,7 +152,9 @@ function finish(s: GameState, winner: Team): GameState {
 /** Draw this play's prompts and choose who does what. */
 export function dealMission(s: GameState, cardId: string, rng: () => number): MissionState {
   const card = missionById(cardId);
-  const players = shuffle(aliveIds(s), rng);
+  // Bots cannot run, swim or hum, so mission jobs go to real players when there are any.
+  const humans = alive(s).filter((p) => !p.isBot).map((p) => p.id);
+  const players = shuffle(humans.length ? humans : aliveIds(s), rng);
   const roleHolders = card.roles ? players.slice(0, card.roles.count ?? 1) : [];
   const set = card.prompts;
   const drawn = set ? shuffle(set.pool, rng).slice(0, set.count) : [];
@@ -420,6 +425,8 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
     case 'endVote':
       if (s.phase !== 'endgameVote' || !isAlive(s, a.playerId) || s.endVotes[a.playerId]) return s;
       return { ...s, endVotes: { ...s.endVotes, [a.playerId]: a.choice } };
+    case 'botTick':
+      return botTick(s, ctx);
     case 'restart': {
       const fresh = newGame(s.code);
       return {
@@ -433,7 +440,9 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
 
 export function reduce(s: GameState, a: Action, ctx: Ctx): GameState {
   const next = reduceInner(s, a, ctx);
-  return next === s ? s : { ...next, rev: s.rev + 1 };
+  if (next === s) return s;
+  const phaseSince = next.phase !== s.phase || next.voteRound !== s.voteRound ? ctx.now : next.phaseSince;
+  return { ...next, phaseSince, rev: s.rev + 1 };
 }
 
 export function endgameReady(s: GameState): boolean {

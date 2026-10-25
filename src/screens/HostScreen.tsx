@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
+import qrcode from 'qrcode-generator';
 import {
   aliveIds,
   autoTraitorCount,
@@ -21,11 +22,14 @@ interface Props {
   joinUrl?: string;
   /** Hide the "add bot" and join instructions in places where they make no sense. */
   compact?: boolean;
+  /** Online games have no local game loop, so the host screen sends the bot heartbeat. */
+  online?: boolean;
 }
 
 /** The shared screen everyone in the room watches. Shows only public information. */
-export function HostScreen({ conn, joinUrl, compact }: Props) {
+export function HostScreen({ conn, joinUrl, compact, online }: Props) {
   const view = useView(conn);
+  useBotHeartbeat(online ? conn : null, view);
   if (!view) return <div className="castle tv"><div className="tv-stage muted">Lighting the candles...</div></div>;
   const send = (a: Action) => conn.send(a);
   const night = view.phase === 'night';
@@ -43,9 +47,24 @@ export function HostScreen({ conn, joinUrl, compact }: Props) {
           </>
         )}
       </div>
-      <Stage view={view} send={send} joinUrl={joinUrl} compact={compact} />
+      <Stage view={view} send={send} joinUrl={joinUrl} compact={compact} online={online} />
     </div>
   );
+}
+
+const BOT_PHASES = ['roundtable', 'vote', 'night', 'endgameVote'];
+
+/** Ask the server to let the bots act every couple of seconds, and to close a vote whose time is up. */
+function useBotHeartbeat(conn: GameConnection | null, view: GameState | null) {
+  const needed =
+    !!view &&
+    ((BOT_PHASES.includes(view.phase) && view.players.some((p) => p.isBot && p.alive)) ||
+      (view.phase === 'vote' && !!view.timerEndsAt));
+  useEffect(() => {
+    if (!conn || !needed) return;
+    const t = setInterval(() => conn.send({ type: 'botTick' }), 2000);
+    return () => clearInterval(t);
+  }, [conn, needed]);
 }
 
 function Controls({ children, hint }: { children: ReactNode; hint?: string }) {
@@ -57,7 +76,7 @@ function Controls({ children, hint }: { children: ReactNode; hint?: string }) {
   );
 }
 
-function Stage({ view, send, joinUrl, compact }: { view: GameState; send: (a: Action) => void; joinUrl?: string; compact?: boolean }) {
+function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send: (a: Action) => void; joinUrl?: string; compact?: boolean; online?: boolean }) {
   const name = (id: string | null | undefined) => playerById(view, id)?.name ?? 'Nobody';
   const next = (label: string, primary = true) => (
     <button className={`btn ${primary ? 'primary' : ''}`} onClick={() => send({ type: 'advance' })}>{label}</button>
@@ -71,7 +90,7 @@ function Stage({ view, send, joinUrl, compact }: { view: GameState; send: (a: Ac
           <div className="tv-stage">
             <div className="eyebrow">Join on your phone with code</div>
             <div className="join-code">{view.code}</div>
-            {joinUrl && !compact && <div className="muted">{joinUrl}</div>}
+            {joinUrl && !compact && (online ? <JoinQr url={joinUrl} /> : <div className="muted">{joinUrl}</div>)}
             <Seats view={view} />
             {n === 0 && <div className="tv-sub muted">Waiting for guests to arrive at the castle...</div>}
           </div>
@@ -178,6 +197,7 @@ function Stage({ view, send, joinUrl, compact }: { view: GameState; send: (a: Ac
             <div className="tv-title fade-in">{endgame ? 'Another banishment' : 'Who do you suspect?'}</div>
             <div className="tv-sub">Speak your suspicions. Defend yourself. When the vote opens, each of you chooses one name on your phone.</div>
             <Countdown endsAt={view.timerEndsAt} />
+            <TableTalk view={view} />
             <Seats view={view} />
           </div>
           <Controls>
@@ -368,5 +388,42 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
         {b.step === 'verdict' && <button className="btn primary" onClick={() => send({ type: 'advance' })}>Reveal their role</button>}
       </Controls>
     </>
+  );
+}
+
+function JoinQr({ url }: { url: string }) {
+  const src = useMemo(() => {
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    return qr.createDataURL(6, 2);
+  }, [url]);
+  return (
+    <div className="join-qr">
+      <img src={src} alt="QR code to join the game" width={180} height={180} />
+      <div className="muted">Scan to join, or open<br /><span className="gold">{url}</span></div>
+    </div>
+  );
+}
+
+/** What the bots have said at this Round Table. */
+export function TableTalk({ view, max = 4 }: { view: GameState; max?: number }) {
+  const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince).slice(-max);
+  if (!lines.length) return null;
+  return (
+    <div className="table-talk">
+      {lines.map((l) => {
+        const p = playerById(view, l.from);
+        return p ? (
+          <div className="talk-line" key={`${l.from}-${l.at}`}>
+            <Avatar player={p} />
+            <div>
+              <div className="who">{p.name}</div>
+              <div className="said">“{l.text}”</div>
+            </div>
+          </div>
+        ) : null;
+      })}
+    </div>
   );
 }
