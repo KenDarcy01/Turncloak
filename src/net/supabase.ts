@@ -1,8 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { makeCode } from '../engine/game';
 import type { Action, GameState } from '../engine/types';
-import { TV } from '../engine/view';
 import type { GameConnection } from './backend';
+import type { SeatInfo, TableInfo } from './device';
 
 /**
  * Online backend. Every move goes to the `game-action` edge function, which runs
@@ -60,22 +60,50 @@ export async function hostGame(): Promise<string> {
   throw new Error('Could not find a free game code. Try again.');
 }
 
-export async function joinGame(code: string, name: string): Promise<string> {
-  const uid = await ensureUser();
-  await call(code, { type: 'join', playerId: uid, name });
-  return uid;
-}
-
 async function gameId(code: string): Promise<string | null> {
   const { data } = await sb().from('games').select('id').eq('code', code).maybeSingle();
   return data?.id ?? null;
 }
 
+/** Public facts about a game, readable before this phone has a seat. Null if there is no such game. */
+export async function tableInfo(code: string): Promise<TableInfo | null> {
+  const uid = await ensureUser();
+  const { data } = await sb().from('games').select('phase, doors_open, free_seats, host_user_id').eq('code', code).maybeSingle();
+  if (!data) return null;
+  return { phase: data.phase, doorsOpen: data.doors_open, freeSeats: data.free_seats ?? [], isHost: data.host_user_id === uid };
+}
+
+/** The seats this phone holds in a game, found on the server so they survive a refresh or a closed tab. */
+export async function mySeats(code: string): Promise<SeatInfo[]> {
+  const uid = await ensureUser();
+  const id = await gameId(code);
+  if (!id) return [];
+  const { data } = await sb().from('seat_views').select('seat, view').eq('game_id', id).eq('viewer_id', uid).eq('is_tv', false);
+  return (data ?? []).map((r) => ({
+    id: r.seat as string,
+    name: (r.view as GameState).players.find((p) => p.id === r.seat)?.name ?? 'Player',
+  }));
+}
+
+/** Take a new seat. Throws if the game has started and the doors are shut. */
+export async function joinSeat(code: string, playerId: string, name: string): Promise<void> {
+  await ensureUser();
+  const res = await call(code, { type: 'join', playerId, name });
+  if (!res.changed) throw new Error('The game has started. Ask the host to let new players in.');
+}
+
+/** Pick up a seat the host freed for a new phone. */
+export async function claimSeat(code: string, playerId: string): Promise<void> {
+  await ensureUser();
+  const res = await call(code, { type: 'claimSeat', playerId });
+  if (!res.changed) throw new Error('Someone else has already picked up that seat.');
+}
+
 /**
- * Connect a screen to a game. `asTv` is the host screen; otherwise the signed-in
- * user's own player view.
+ * Connect a screen to a game. `seat` is TV for the host screen, otherwise one of
+ * the player seats this phone holds.
  */
-export async function connectOnline(code: string, asTv: boolean): Promise<GameConnection & { missing: () => boolean }> {
+export async function connectOnline(code: string, seat: string): Promise<GameConnection & { missing: () => boolean }> {
   const uid = await ensureUser();
   const id = await gameId(code);
   const listeners = new Set<(v: GameState) => void>();
@@ -91,11 +119,11 @@ export async function connectOnline(code: string, asTv: boolean): Promise<GameCo
   const refresh = async () => {
     if (!id) return;
     const { data } = await sb()
-      .from('game_views')
+      .from('seat_views')
       .select('view')
       .eq('game_id', id)
       .eq('viewer_id', uid)
-      .eq('is_tv', asTv)
+      .eq('seat', seat)
       .maybeSingle();
     missing = !data;
     accept(data?.view as GameState | undefined);
@@ -103,13 +131,13 @@ export async function connectOnline(code: string, asTv: boolean): Promise<GameCo
 
   const channel = id
     ? sb()
-        .channel(`views:${id}:${uid}:${asTv ? 'tv' : 'p'}`)
+        .channel(`views:${id}:${seat}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'game_views', filter: `viewer_id=eq.${uid}` },
+          { event: '*', schema: 'public', table: 'seat_views', filter: `viewer_id=eq.${uid}` },
           (payload) => {
-            const row = payload.new as { game_id?: string; is_tv?: boolean; view?: GameState };
-            if (row.game_id === id && row.is_tv === asTv) accept(row.view);
+            const row = payload.new as { game_id?: string; seat?: string; view?: GameState };
+            if (row.game_id === id && row.seat === seat) accept(row.view);
           },
         )
         .subscribe()
@@ -122,7 +150,7 @@ export async function connectOnline(code: string, asTv: boolean): Promise<GameCo
 
   return {
     code,
-    viewer: asTv ? TV : uid,
+    viewer: seat,
     missing: () => missing,
     subscribe(fn) {
       listeners.add(fn);

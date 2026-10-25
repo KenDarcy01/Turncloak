@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botActions } from './bots';
-import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, reduce, type Ctx } from './game';
+import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, playerById, reduce, type Ctx } from './game';
 import { MISSIONS } from './missions';
 import type { Action, GameState } from './types';
 import { HIDDEN, TV, viewFor } from './view';
@@ -272,5 +272,57 @@ describe('bots', () => {
       }
       expect(g.get().phase).toBe('gameOver');
     }
+  });
+});
+
+describe('changing the table', () => {
+  it('lets new players in mid-game only while the doors are open, always as Faithful', () => {
+    let { s, ctx } = setup(5);
+    s = run(s, ctx, { type: 'advance' });
+    expect(run(s, ctx, { type: 'join', playerId: 'late', name: 'Late' }).players).toHaveLength(5);
+    s = run(s, ctx, { type: 'setDoors', open: true }, { type: 'join', playerId: 'late', name: 'Late' }, { type: 'addBot' });
+    expect(s.players).toHaveLength(7);
+    expect(s.roles.late).toBe('faithful');
+    expect(s.roles[s.players[6].id]).toBe('faithful');
+    expect(viewFor(s, TV).roles.late).toBeUndefined();
+  });
+
+  it('removes from the lobby without a trace', () => {
+    const ctx: Ctx = { rng: seeded(), now: 0 };
+    let s = newGame('X');
+    s = run(s, ctx, { type: 'join', playerId: 'a', name: 'A' }, { type: 'addBot' });
+    s = run(s, ctx, { type: 'removePlayer', targetId: 'a' });
+    expect(s.players.map((p) => p.id)).not.toContain('a');
+  });
+
+  it('a removed player leaves, their role is shown, and their vote is withdrawn', () => {
+    let { s, ctx } = setup(8);
+    s = run(s, ctx, { type: 'advance' }, { type: 'missionResult', result: 'fail' }, { type: 'advance' }, { type: 'advance' });
+    const ids = aliveIds(s);
+    const leaver = ids.find((id) => s.roles[id] === 'faithful')!;
+    s = run(s, ctx, { type: 'castVote', playerId: leaver, targetId: ids.find((i) => i !== leaver)! });
+    s = run(s, ctx, { type: 'removePlayer', targetId: leaver });
+    expect(playerById(s, leaver)!.out!.by).toBe('left');
+    expect(s.votes[leaver]).toBeUndefined();
+    expect(viewFor(s, TV).roles[leaver]).toBe('faithful');
+    // The rest vote and the round still closes.
+    for (const id of aliveIds(s)) s = run(s, ctx, { type: 'castVote', playerId: id, targetId: aliveIds(s).find((t) => t !== id)! });
+    expect(s.phase).toBe('banishment');
+  });
+
+  it('ends the game if the last Traitor leaves', () => {
+    let { s, ctx } = setup(5);
+    s = run(s, ctx, { type: 'removePlayer', targetId: aliveTraitors(s)[0].id });
+    expect(s.phase).toBe('gameOver');
+    expect(s.winner).toBe('faithful');
+  });
+
+  it('frees a seat for another phone and lets it be picked up once', () => {
+    let { s, ctx } = setup(5);
+    expect(run(s, ctx, { type: 'claimSeat', playerId: 'p1' })).toBe(s);
+    s = run(s, ctx, { type: 'releaseSeat', targetId: 'p1' });
+    expect(playerById(s, 'p1')!.away).toBe(true);
+    s = run(s, ctx, { type: 'claimSeat', playerId: 'p1' });
+    expect(playerById(s, 'p1')!.away).toBeUndefined();
   });
 });

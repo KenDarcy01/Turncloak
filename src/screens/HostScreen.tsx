@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
 import {
   aliveIds,
@@ -29,6 +29,7 @@ interface Props {
 /** The shared screen everyone in the room watches. Shows only public information. */
 export function HostScreen({ conn, joinUrl, compact, online }: Props) {
   const view = useView(conn);
+  const [panel, setPanel] = useState(false);
   useBotHeartbeat(online ? conn : null, view);
   if (!view) return <div className="castle tv"><div className="tv-stage muted">Lighting the candles...</div></div>;
   const send = (a: Action) => conn.send(a);
@@ -46,8 +47,14 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
             <div className="stat"><div className="k">Prize pot</div><div className="v">{view.pot.toLocaleString()}</div></div>
           </>
         )}
+        {!compact && (
+          <button className={`btn ${view.doorsOpen ? 'primary' : ''}`} onClick={() => setPanel(true)}>
+            Players{view.doorsOpen ? ' · doors open' : ''}
+          </button>
+        )}
       </div>
       <Stage view={view} send={send} joinUrl={joinUrl} compact={compact} online={online} />
+      {panel && <PlayersPanel view={view} send={send} joinUrl={joinUrl} online={online} onClose={() => setPanel(false)} />}
     </div>
   );
 }
@@ -388,6 +395,99 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
         {b.step === 'verdict' && <button className="btn primary" onClick={() => send({ type: 'advance' })}>Reveal their role</button>}
       </Controls>
     </>
+  );
+}
+
+/** The host's list of everyone at the table: add, remove, or move a player to a new phone. */
+function PlayersPanel({
+  view,
+  send,
+  joinUrl,
+  online,
+  onClose,
+}: {
+  view: GameState;
+  send: (a: Action) => void;
+  joinUrl?: string;
+  online?: boolean;
+  onClose: () => void;
+}) {
+  const lobby = view.phase === 'lobby';
+  const over = view.phase === 'gameOver';
+  const remove = (id: string, name: string) => {
+    const msg = lobby
+      ? `Remove ${name} from the table?`
+      : `Remove ${name} from the game? They leave the castle and everyone sees whether they were a Traitor.`;
+    if (window.confirm(msg)) send({ type: 'removePlayer', targetId: id });
+  };
+  const doorsShown = !lobby && !over;
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="panel players-panel stack" onClick={(e) => e.stopPropagation()}>
+        <div className="row">
+          <h3 style={{ margin: 0 }}>Players</h3>
+          <div className="spacer" />
+          <button className="btn" onClick={onClose}>Done</button>
+        </div>
+
+        <div className="players-list">
+          {view.players.map((p) => (
+            <div key={p.id} className={`player-row ${p.alive ? '' : 'out'}`}>
+              <Avatar player={p} />
+              <div className="who">
+                <div>{p.name}</div>
+                <div className="muted small">
+                  {p.isBot ? 'Bot' : 'Player'}
+                  {p.away && p.alive ? ' · waiting to be picked up on a new phone' : ''}
+                  {!p.alive && p.out ? ` · ${p.out.by}` : ''}
+                </div>
+              </div>
+              {!over && (lobby || p.alive) && (
+                <>
+                  {!p.isBot && !lobby && !p.away && (
+                    <button className="btn small" onClick={() => send({ type: 'releaseSeat', targetId: p.id })}>
+                      Move to a new phone
+                    </button>
+                  )}
+                  <button className="btn small danger" onClick={() => remove(p.id, p.name)}>Remove</button>
+                </>
+              )}
+            </div>
+          ))}
+          {view.players.length === 0 && <div className="muted">Nobody has joined yet.</div>}
+        </div>
+
+        {view.players.some((p) => p.away && p.alive) && (
+          <p className="muted small" style={{ margin: 0 }}>
+            On the new phone, open the join link, enter code {view.code}, and tap "I am ...".
+          </p>
+        )}
+
+        {!over && (
+          <div className="row wrap">
+            <button className="btn" onClick={() => send({ type: 'addBot' })}>Add a bot</button>
+            {doorsShown && (
+              <button className={`btn ${view.doorsOpen ? 'primary' : ''}`} onClick={() => send({ type: 'setDoors', open: !view.doorsOpen })}>
+                {view.doorsOpen ? 'Close the doors' : 'Let new players join'}
+              </button>
+            )}
+          </div>
+        )}
+        {doorsShown && (
+          <p className="muted small" style={{ margin: 0 }}>
+            New players and bots who arrive mid-game are always Faithful.
+          </p>
+        )}
+        {doorsShown && view.doorsOpen && joinUrl && (
+          <div className="stack center">
+            <div className="eyebrow">Join with code</div>
+            <div className="join-code">{view.code}</div>
+            {online ? <JoinQr url={joinUrl} /> : <div className="muted">{joinUrl}</div>}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

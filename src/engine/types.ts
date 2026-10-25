@@ -20,7 +20,9 @@ export interface Player {
   isBot: boolean;
   alive: boolean;
   /** How and on which day the player left the game. */
-  out?: { by: 'banished' | 'murdered'; day: number };
+  out?: { by: 'banished' | 'murdered' | 'left'; day: number };
+  /** The host freed this seat so the player can pick it up on another phone. */
+  away?: boolean;
 }
 
 export interface Settings {
@@ -113,6 +115,9 @@ export interface GameState {
   endVotes: Record<string, 'end' | 'banish'>;
   winner: Team | null;
 
+  /** The host is letting new players join a game that has already started. */
+  doorsOpen?: boolean;
+
   /** Bot speeches at the Round Table, for the whole game. Public. */
   talk: TalkLine[];
   /** Epoch millis when the current phase began. Paces the bots. */
@@ -129,6 +134,14 @@ export type Action =
   | { type: 'join'; playerId: string; name: string }
   | { type: 'leave'; playerId: string }
   | { type: 'addBot' }
+  /** Host: take a player out. In the lobby they vanish; mid-game they leave and their role is shown. */
+  | { type: 'removePlayer'; targetId: string }
+  /** Host: free a seat so the player can carry on from a different phone. */
+  | { type: 'releaseSeat'; targetId: string }
+  /** A phone picks up a freed seat. */
+  | { type: 'claimSeat'; playerId: string }
+  /** Host: allow or stop new players joining a game in progress. */
+  | { type: 'setDoors'; open: boolean }
   | { type: 'updateSettings'; settings: Partial<Settings> }
   | { type: 'start' }
   | { type: 'advance' }
@@ -153,6 +166,9 @@ export type Action =
 /** Actions that only the host screen may send. Everything else carries a playerId. */
 export const HOST_ACTIONS: Action['type'][] = [
   'addBot',
+  'removePlayer',
+  'releaseSeat',
+  'setDoors',
   'updateSettings',
   'start',
   'advance',

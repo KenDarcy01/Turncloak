@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { alive, eligibleVoters, murderTargets, playerById, voteTargets } from '../engine/game';
 import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
@@ -7,14 +7,9 @@ import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/
 import { TableTalk } from './HostScreen';
 
 /** A player's phone. Everything here is private to that player. */
-export function PlayerScreen({ conn, name }: { conn: GameConnection; name?: string }) {
+export function PlayerScreen({ conn, top }: { conn: GameConnection; top?: ReactNode }) {
   const view = useView(conn);
   const me = view ? playerById(view, conn.viewer) : undefined;
-
-  // Ask to join once we can see the lobby and we're not in it yet.
-  useEffect(() => {
-    if (view && !me && view.phase === 'lobby' && name) conn.send({ type: 'join', playerId: conn.viewer, name });
-  }, [view, me, name, conn]);
 
   if (!view) {
     return (
@@ -27,7 +22,7 @@ export function PlayerScreen({ conn, name }: { conn: GameConnection; name?: stri
   if (!me) {
     return (
       <Shell>
-        <p className="lead center">{view.phase === 'lobby' ? 'Taking your seat...' : 'This game has already begun.'}</p>
+        <p className="lead center">{view.phase === 'lobby' ? 'Taking your seat...' : 'You are no longer at this table.'}</p>
       </Shell>
     );
   }
@@ -38,12 +33,23 @@ export function PlayerScreen({ conn, name }: { conn: GameConnection; name?: stri
 
   return (
     <Shell me={me} pot={view.phase === 'lobby' ? undefined : view.pot}>
+      {top}
       <div className="phone-main">
         <Body view={view} me={me} send={send} />
       </div>
       {role && me.alive && view.phase !== 'gameOver' && <RoleCard role={role} fellows={fellows} />}
     </Shell>
   );
+}
+
+/** True when this player owes a move right now, so a shared phone can say whose turn it is. */
+export function needsAction(view: GameState | undefined, id: string): boolean {
+  const me = view && playerById(view, id);
+  if (!view || !me?.alive) return false;
+  if (view.phase === 'vote') return eligibleVoters(view).includes(id) && !view.votes[id];
+  if (view.phase === 'night') return view.roles[id] === 'traitor' ? !view.nightPicks[id] : !view.suspicions[id];
+  if (view.phase === 'endgameVote') return !view.endVotes[id];
+  return false;
 }
 
 function Shell({ children, me, pot }: { children: ReactNode; me?: Player; pot?: number }) {
@@ -70,7 +76,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     return (
       <div className="stack center fade-in">
         <div className="eyebrow">You are out</div>
-        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : 'You were banished'}</h2>
+        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the castle' : 'You were banished'}</h2>
         <p className="lead">Stay and watch, but keep what you know to yourself.</p>
       </div>
     );

@@ -49,9 +49,10 @@ export function Seat({ player, role, voted, note }: { player: Player; role?: Rol
       <div className="name">{player.name}</div>
       {!player.alive && (
         <div className={`tag ${role === 'traitor' ? 'red' : role ? 'gold' : 'muted'}`}>
-          {player.out?.by === 'murdered' ? 'murdered' : role ?? 'out'}
+          {player.out?.by === 'murdered' ? 'murdered' : player.out?.by === 'left' ? `left${role ? ` · ${role}` : ''}` : role ?? 'out'}
         </div>
       )}
+      {player.alive && player.away && <div className="tag muted">new phone</div>}
       {note}
     </div>
   );

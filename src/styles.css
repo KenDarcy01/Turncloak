@@ -290,3 +290,21 @@ input.code { text-transform: uppercase; letter-spacing: 0.4em; text-align: cente
 .talk-line > div:last-child { min-width: 0; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; padding: 8px 14px; }
 .talk-line .who { font-family: var(--display); font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); }
 .talk-line .said { font-style: italic; font-size: clamp(1.02rem, 1.7vw, 1.3rem); }
+
+/* Host's Players panel */
+.overlay { position: fixed; inset: 0; background: rgba(5, 3, 4, 0.78); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.players-panel { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+.players-list { display: flex; flex-direction: column; gap: 8px; }
+.player-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.player-row .who { flex: 1; min-width: 120px; }
+.player-row.out .who { opacity: 0.55; }
+.small { font-size: 0.85rem; }
+.btn.danger { border-color: var(--blood-bright); color: #f0b4ad; }
+.btn.danger:hover { box-shadow: 0 0 18px rgba(198, 42, 51, 0.4); }
+
+/* A phone holding several players */
+.seat-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0 4px; }
+.chip { position: relative; font: inherit; font-size: 0.9rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; min-height: 36px; }
+.chip.on { border-color: var(--gold); color: var(--gold-bright); }
+.chip.add { border-style: dashed; }
+.chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blood-bright); margin-left: 6px; vertical-align: middle; box-shadow: 0 0 8px rgba(198, 42, 51, 0.8); }

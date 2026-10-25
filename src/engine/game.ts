@@ -51,6 +51,7 @@ export function newGame(code: string): GameState {
     endVotes: {},
     winner: null,
     timerEndsAt: null,
+    doorsOpen: false,
     talk: [],
     phaseSince: 0,
     log: [],
@@ -341,8 +342,11 @@ function botName(s: GameState): string {
 }
 
 function addPlayer(s: GameState, id: string, name: string, isBot: boolean): GameState {
-  if (s.phase !== 'lobby' || s.players.length >= MAX_PLAYERS) return s;
+  if (s.phase === 'gameOver' || s.players.length >= MAX_PLAYERS) return s;
   if (s.players.some((p) => p.id === id)) return s;
+  // Once the game is running, people only get in while the host holds the doors open. Bots are the host's own call.
+  const late = s.phase !== 'lobby';
+  if (late && !isBot && !s.doorsOpen) return s;
   const player: Player = {
     id,
     name: name.trim().slice(0, 18) || 'Guest',
@@ -350,7 +354,40 @@ function addPlayer(s: GameState, id: string, name: string, isBot: boolean): Game
     isBot,
     alive: true,
   };
-  return { ...s, players: [...s.players, player] };
+  const next = { ...s, players: [...s.players, player] };
+  if (!late) return next;
+  // Late arrivals are always Faithful: the Traitors were chosen when the doors first closed.
+  return log({ ...next, roles: { ...s.roles, [id]: 'faithful' } }, `${player.name} arrived at the castle as a new Faithful.`);
+}
+
+/** The host takes someone out of the game. */
+function removePlayer(s: GameState, id: string, ctx: Ctx): GameState {
+  const player = playerById(s, id);
+  if (!player) return s;
+  if (s.phase === 'lobby') return { ...s, players: s.players.filter((p) => p.id !== id) };
+  if (!player.alive || s.phase === 'gameOver') return s;
+
+  const players = s.players.map((p) => (p.id === id ? { ...p, alive: false, away: undefined, out: { by: 'left' as const, day: s.day } } : p));
+  const without = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([k, v]) => k !== id && v !== id)) as Record<string, T>;
+  const candidates = s.voteCandidates?.filter((c) => c !== id) ?? null;
+  const role = s.roles[id] === 'traitor' ? 'a Traitor' : 'Faithful';
+  let next: GameState = log(
+    {
+      ...s,
+      players,
+      votes: without(s.votes),
+      voteCandidates: candidates && candidates.length ? candidates : null,
+      nightPicks: without(s.nightPicks),
+      suspicions: without(s.suspicions),
+      endVotes: without(s.endVotes),
+    },
+    `${player.name} left the castle, and was ${role}.`,
+  );
+  const winner = checkWinner(next);
+  if (winner) return finish(next, winner);
+  // Their vote may have been the last one outstanding.
+  if (next.phase === 'vote' && eligibleVoters(next).every((v) => next.votes[v])) next = closeVoting(next, ctx);
+  return next;
 }
 
 function isAlive(s: GameState, id: string) {
@@ -366,6 +403,19 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
     case 'leave':
       if (s.phase !== 'lobby') return s;
       return { ...s, players: s.players.filter((p) => p.id !== a.playerId) };
+    case 'removePlayer':
+      return removePlayer(s, a.targetId, ctx);
+    case 'releaseSeat': {
+      const p = playerById(s, a.targetId);
+      if (!p || p.isBot || p.away) return s;
+      return { ...s, players: s.players.map((x) => (x.id === a.targetId ? { ...x, away: true } : x)) };
+    }
+    case 'claimSeat': {
+      if (!playerById(s, a.playerId)?.away) return s;
+      return { ...s, players: s.players.map((x) => (x.id === a.playerId ? { ...x, away: undefined } : x)) };
+    }
+    case 'setDoors':
+      return !!s.doorsOpen === a.open ? s : { ...s, doorsOpen: a.open };
     case 'updateSettings':
       if (s.phase !== 'lobby') return s;
       return { ...s, settings: { ...s.settings, ...a.settings } };
@@ -432,7 +482,7 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       return {
         ...fresh,
         settings: s.settings,
-        players: s.players.map((p) => ({ ...p, alive: true, out: undefined })),
+        players: s.players.filter((p) => p.out?.by !== 'left').map((p) => ({ ...p, alive: true, out: undefined })),
       };
     }
   }

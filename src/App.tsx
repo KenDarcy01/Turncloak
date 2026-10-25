@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { makeCode } from './engine/game';
 import { TV } from './engine/view';
-import { connectRemoteLocal, LocalHost, type GameConnection } from './net/backend';
-import { connectOnline, hostGame, joinGame, ONLINE } from './net/supabase';
-import { playerIdFor, storage } from './net/storage';
+import { LocalHost, type GameConnection } from './net/backend';
+import { deviceFor } from './net/device';
+import { connectOnline, hostGame, ONLINE } from './net/supabase';
+import { storage } from './net/storage';
 import { Demo } from './screens/Demo';
 import { HostScreen } from './screens/HostScreen';
-import { PlayerScreen } from './screens/PlayerScreen';
+import { PhoneHub } from './screens/PhoneHub';
 import { Logo } from './ui/components';
 
 function useHash() {
@@ -39,6 +40,7 @@ function Home() {
       <p className="lead muted" style={{ maxWidth: 560, margin: 0, fontStyle: 'italic', fontSize: '1.25rem' }}>
         A game of loyalty and betrayal for 4 to 22 players. Hidden Traitors murder by night. The Faithful must banish them by day.
       </p>
+      <Continue />
       <div className="home-cards">
         <div className="panel">
           <h3>Try it now</h3>
@@ -95,6 +97,7 @@ function joinUrlFor(code: string) {
 }
 
 function Host({ code }: { code: string }) {
+  useEffect(() => remember(code, true), [code]);
   return ONLINE ? <OnlineHost code={code} /> : <LocalHostScreen code={code} />;
 }
 
@@ -129,7 +132,7 @@ function useOnline<T extends GameConnection>(open: () => Promise<T>, deps: unkno
 }
 
 function OnlineHost({ code }: { code: string }) {
-  const { conn, error } = useOnline(() => connectOnline(code, true), [code]);
+  const { conn, error } = useOnline(() => connectOnline(code, TV), [code]);
   if (error || (conn && conn.missing())) {
     return <Problem text={error || `This screen is not the host of game ${code}. Open the castle again from the home page.`} />;
   }
@@ -153,6 +156,7 @@ function Join({ initialCode }: { initialCode?: string }) {
   const ok = code.length === 4 && name.trim().length > 0;
   const join = () => {
     storage.set('turncloak:name', name.trim());
+    storage.set('turncloak:autojoin', code);
     go(`play/${code}`);
   };
   return (
@@ -174,25 +178,45 @@ function Join({ initialCode }: { initialCode?: string }) {
 }
 
 function Play({ code }: { code: string }) {
-  return ONLINE ? <OnlinePlay code={code} /> : <LocalPlay code={code} />;
+  useEffect(() => remember(code, false), [code]);
+  const device = useMemo(() => deviceFor(code), [code]);
+  return <PhoneHub key={code} device={device} />;
 }
 
-function LocalPlay({ code }: { code: string }) {
-  const conn = useMemo(() => connectRemoteLocal(code, playerIdFor(code)), [code]);
-  useEffect(() => () => conn.close(), [conn]);
-  return <PlayerScreen conn={conn} name={storage.get('turncloak:name') ?? undefined} />;
+/** Games this browser hosted or played recently, so they can be picked up again from the home page. */
+interface Recent {
+  code: string;
+  host: boolean;
+  at: number;
 }
 
-function OnlinePlay({ code }: { code: string }) {
-  const name = storage.get('turncloak:name') ?? '';
-  const { conn, error } = useOnline(async () => {
-    if (name) await joinGame(code, name);
-    return connectOnline(code, false);
-  }, [code]);
-  if (!name) return <Join initialCode={code} />;
-  if (error === 'no such game') return <Problem text={`There is no game with the code ${code}. Check the code on the host screen.`} />;
-  if (error) return <Problem text={`Could not join: ${error}`} />;
-  if (!conn) return <Problem text="Finding your seat at the table..." quiet />;
-  if (conn.missing()) return <Problem text={`Game ${code} has already started without you. Ask the host to start a new game.`} />;
-  return <PlayerScreen conn={conn} name={name} />;
+const RECENT_KEY = 'turncloak:recent';
+const recentGames = () =>
+  (storage.getJSON<Recent[]>(RECENT_KEY) ?? []).filter((r) => Date.now() - r.at < 3 * 24 * 3600 * 1000);
+
+function remember(code: string, host: boolean) {
+  const rest = recentGames().filter((r) => !(r.code === code && r.host === host));
+  storage.setJSON(RECENT_KEY, [{ code, host, at: Date.now() }, ...rest].slice(0, 6));
+}
+
+function forget(r: Recent) {
+  storage.setJSON(RECENT_KEY, recentGames().filter((x) => !(x.code === r.code && x.host === r.host)));
+}
+
+function Continue() {
+  const [list, setList] = useState(recentGames);
+  if (!list.length) return null;
+  return (
+    <div className="panel stack" style={{ width: 'min(560px, 100%)' }}>
+      <h3 style={{ margin: 0 }}>Continue a game</h3>
+      {list.map((r) => (
+        <div key={`${r.code}-${r.host}`} className="row">
+          <button className="btn primary" style={{ flex: 1 }} onClick={() => go(`${r.host ? 'host' : 'play'}/${r.code}`)}>
+            {r.host ? 'Host screen' : 'My phone'} · {r.code}
+          </button>
+          <button className="btn" aria-label="Forget this game" onClick={() => { forget(r); setList(recentGames()); }}>✕</button>
+        </div>
+      ))}
+    </div>
+  );
 }
