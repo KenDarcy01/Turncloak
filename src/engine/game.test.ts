@@ -212,7 +212,7 @@ describe('missions', () => {
 
 describe('mission packs', () => {
   it('only draws missions from the chosen pack', () => {
-    for (const pack of ['castle', 'resort'] as const) {
+    for (const pack of ['castle', 'resort', 'dinner'] as const) {
       let { s, ctx } = setup(6);
       s = { ...s, settings: { ...s.settings, missionPack: pack } };
       s = reduce(s, { type: 'advance' }, ctx);
