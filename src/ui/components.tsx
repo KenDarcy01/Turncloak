@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GameConnection } from '../net/backend';
 import type { GameState, Player, Role } from '../engine/types';
+import { buzz } from '../native';
 
 export function useView(conn: GameConnection | null): GameState | null {
   const [view, setView] = useState<GameState | null>(null);
@@ -103,7 +104,10 @@ export function Gold({ amount }: { amount: number }) {
 export function RoleCard({ role, fellows }: { role: Role; fellows: Player[] }) {
   const [shown, setShown] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const show = () => setShown(true);
+  const show = () => {
+    if (!shown) buzz('tap');
+    setShown(true);
+  };
   const hide = () => {
     if (timer.current) clearTimeout(timer.current);
     setShown(false);

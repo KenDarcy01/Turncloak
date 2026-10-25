@@ -29,7 +29,7 @@ export async function ensureUser(): Promise<string> {
   return signed.user.id;
 }
 
-async function call(code: string, action: Action | { type: 'create' }) {
+async function call(code: string, action: Action | { type: 'create' } | { type: 'deleteMe' }) {
   const { data, error } = await sb().functions.invoke('game-action', { body: { code, action } });
   if (error) {
     // The function's own JSON error, when there is one, is more useful than the HTTP wrapper.
@@ -168,4 +168,12 @@ export async function connectOnline(code: string, seat: string): Promise<GameCon
       if (channel) sb().removeChannel(channel);
     },
   };
+}
+
+/** Deletes this phone's guest user on the server (and with it every game it hosted and seat it held), then signs out. */
+export async function deleteMe() {
+  const { data } = await sb().auth.getSession();
+  if (!data.session) return;
+  await call('', { type: 'deleteMe' });
+  await sb().auth.signOut({ scope: 'local' });
 }
