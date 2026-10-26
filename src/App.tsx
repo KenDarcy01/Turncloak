@@ -9,7 +9,7 @@ import { NATIVE, WEB_URL } from './native';
 import { Demo } from './screens/Demo';
 import { HostScreen } from './screens/HostScreen';
 import { PhoneHub } from './screens/PhoneHub';
-import { Logo } from './ui/components';
+import { Logo, LogoMark } from './ui/components';
 
 function useHash() {
   const [hash, setHash] = useState(window.location.hash);
@@ -36,39 +36,55 @@ export function App() {
 
 function Home() {
   return (
-    <div className="castle home">
-      <Logo tagline />
-      <p className="lead muted" style={{ maxWidth: 560, margin: 0, fontStyle: 'italic', fontSize: '1.25rem' }}>
-        A game of loyalty and betrayal for 4 to 22 players. Hidden Traitors murder by night. The Faithful must banish them by day.
+    <div className="castle landing">
+      <header className="landing-hero">
+        <LogoMark className="hero-mark" />
+        <h1 className="logo hero-word">Turncloak</h1>
+        <p className="hero-tag">Trust no one at the table</p>
+      </header>
+      <p className="landing-pitch">
+        Hidden Traitors murder by night. The Faithful must banish them by day. <span className="nowrap">4 to 22 players.</span>
       </p>
       <Continue />
-      <div className="home-cards">
-        <div className="panel">
-          <h3>Try it now</h3>
-          <p className="muted" style={{ margin: 0 }}>Play a full game on this screen against bots.</p>
-          <div className="spacer" />
-          <button className="btn primary" onClick={() => go('demo')}>Play the demo</button>
-        </div>
-        <div className="panel">
-          <h3>Host a game</h3>
-          <p className="muted" style={{ margin: 0 }}>Put this on the TV. Everyone joins on their phone.</p>
-          <div className="spacer" />
-          <HostButton />
-        </div>
-        <div className="panel">
-          <h3>Join a game</h3>
-          <p className="muted" style={{ margin: 0 }}>Enter the four letter code from the host screen.</p>
-          <div className="spacer" />
-          <button className="btn" onClick={() => go('join')}>Join</button>
-        </div>
-      </div>
-      {!ONLINE && (
-        <p className="muted" style={{ fontSize: '0.9rem', maxWidth: 560 }}>
-          Local mode: host and players must be tabs in the same browser.
-        </p>
-      )}
+      <Doors />
+      {!ONLINE && <p className="landing-note">Local mode: host and players must be tabs in the same browser.</p>}
       <Footer />
     </div>
+  );
+}
+
+/** The three ways in, most used first: guests join, one person hosts, newcomers try the demo. */
+function Doors() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const host = async () => {
+    if (!ONLINE) return go(`host/${makeCode()}`);
+    setBusy(true);
+    setError('');
+    try {
+      go(`host/${await hostGame()}`);
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="doors">
+      <Door kind="primary" title="Join a game" sub="Got a code from the TV? Start here." onClick={() => go('join')} />
+      <Door title={busy ? 'Opening...' : 'Host a game'} sub="Put this on the TV. Phones join in." onClick={host} disabled={busy} />
+      <Door kind="ghost" title="Try the demo" sub="A full game on this screen against bots." onClick={() => go('demo')} />
+      {error && <p className="red" style={{ margin: 0 }}>Could not create the game: {error}</p>}
+    </div>
+  );
+}
+
+function Door({ title, sub, kind = '', onClick, disabled }: { title: string; sub: string; kind?: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button className={`door ${kind}`} onClick={onClick} disabled={disabled}>
+      <span className="door-title">{title}</span>
+      <span className="door-sub">{sub}</span>
+      <span className="door-arrow" aria-hidden>›</span>
+    </button>
   );
 }
 
@@ -87,35 +103,15 @@ function Footer() {
     setState(ok ? 'done' : 'failed');
   };
   return (
-    <p className="muted row" style={{ fontSize: '0.9rem', gap: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+    <footer className="landing-links">
       <a href="privacy.html">Privacy</a>
+      <span aria-hidden>·</span>
       <a href="support.html">Help</a>
-      <button className="btn small" disabled={state === 'busy'} onClick={reset}>Reset my data</button>
-      {state === 'done' && <span>Your data has been deleted.</span>}
+      <span aria-hidden>·</span>
+      <button className="link" disabled={state === 'busy'} onClick={reset}>Reset my data</button>
+      {state === 'done' && <span className="landing-note">Your data has been deleted.</span>}
       {state === 'failed' && <span className="red">Cleared this device, but the server could not be reached. Try again later.</span>}
-    </p>
-  );
-}
-
-function HostButton() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const open = async () => {
-    if (!ONLINE) return go(`host/${makeCode()}`);
-    setBusy(true);
-    setError('');
-    try {
-      go(`host/${await hostGame()}`);
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <button className="btn" disabled={busy} onClick={open}>{busy ? 'Opening...' : 'Open the castle'}</button>
-      {error && <p className="red" style={{ margin: 0, fontSize: '0.95rem' }}>Could not create the game: {error}</p>}
-    </>
+    </footer>
   );
 }
 
@@ -236,8 +232,8 @@ function Continue() {
   const [list, setList] = useState(recentGames);
   if (!list.length) return null;
   return (
-    <div className="panel stack" style={{ width: 'min(560px, 100%)' }}>
-      <h3 style={{ margin: 0 }}>Continue a game</h3>
+    <div className="panel stack continue">
+      <h3>Continue a game</h3>
       {list.map((r) => (
         <div key={`${r.code}-${r.host}`} className="row">
           <button className="btn primary" style={{ flex: 1 }} onClick={() => go(`${r.host ? 'host' : 'play'}/${r.code}`)}>

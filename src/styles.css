@@ -272,9 +272,46 @@ input.code { text-transform: uppercase; letter-spacing: 0.4em; padding-left: cal
 /* ===== Home & demo ===== */
 .home { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 32px 16px; text-align: center; }
 .home .logo { font-size: clamp(1.6rem, 7.5vw, 5rem); max-width: 100%; }
-.home-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; width: min(900px, 100%); }
-.home-cards .panel { display: flex; flex-direction: column; gap: 12px; text-align: left; }
-.home-cards h3 { color: var(--gold-bright); font-size: 1.1rem; }
+
+/* Home page: one centred column that fits a phone screen, ways in ranked by how often they're used. */
+.landing { min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 40px 16px 24px; text-align: center; }
+.landing > * { width: min(440px, 100%); }
+.landing-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.hero-mark { width: clamp(84px, 26vw, 128px); height: auto; aspect-ratio: 1; filter: drop-shadow(0 0 28px rgba(212, 175, 95, 0.3)); }
+/* Letter spacing trails after the last letter, so pad the left to keep the word centred. */
+.hero-word { font-size: clamp(2rem, 10vw, 3.4rem); letter-spacing: 0.16em; padding-left: 0.16em; line-height: 1.1; margin-top: 6px; }
+.hero-tag { margin: 0; font-style: italic; color: var(--muted); font-size: 1.15rem; }
+.landing-pitch { margin: 0; font-style: italic; font-size: 1.15rem; text-wrap: balance; }
+.nowrap { white-space: nowrap; }
+.landing-note { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.landing .continue { text-align: left; }
+.landing .continue h3 { color: var(--gold-bright); font-size: 1.1rem; }
+.landing-links { margin-top: auto; padding-top: 8px; display: flex; gap: 6px 10px; justify-content: center; flex-wrap: wrap; font-size: 0.95rem; color: var(--muted); }
+.landing-links a, .link { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--gold-dim); }
+button.link { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.landing-links > :nth-child(n + 6) { flex-basis: 100%; }
+
+.doors { display: flex; flex-direction: column; gap: 12px; }
+.door {
+  appearance: none; text-align: left; cursor: pointer; width: 100%;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center;
+  padding: 16px 18px; border-radius: var(--radius); min-height: 76px;
+  border: 1px solid var(--gold-dim);
+  background: linear-gradient(180deg, rgba(45, 32, 34, 0.85), rgba(22, 16, 18, 0.9));
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+.door:hover { border-color: var(--gold); box-shadow: 0 0 22px rgba(212, 175, 95, 0.2); }
+.door:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+.door:active { transform: scale(0.99); }
+.door:disabled { opacity: 0.5; cursor: progress; }
+.door-title { font-family: var(--display); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 1rem; color: var(--gold-bright); }
+.door-sub { grid-column: 1; font-size: 1.02rem; color: var(--muted); line-height: 1.25; margin-top: 2px; }
+.door-arrow { grid-column: 2; grid-row: 1 / span 2; font-family: var(--display); font-size: 1.8rem; color: var(--gold-dim); line-height: 1; }
+.door.primary { border-color: #e05a4f; background: linear-gradient(180deg, var(--blood-bright), var(--blood)); }
+.door.primary .door-title, .door.primary .door-arrow { color: #fff3e0; }
+.door.primary .door-sub { color: rgba(255, 236, 220, 0.8); }
+.door.primary:hover { box-shadow: 0 0 26px rgba(198, 42, 51, 0.5); }
+.door.ghost { background: transparent; border-color: var(--line); }
 
 .demo { height: 100%; display: flex; flex-direction: column; }
 .demo-bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: rgba(0, 0, 0, 0.4); flex-wrap: wrap; }
