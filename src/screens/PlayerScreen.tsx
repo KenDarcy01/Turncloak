@@ -138,7 +138,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
           lead={traitor ? 'Blend in. Cast suspicion on a Truecloak.' : 'Who has been acting strangely?'}
         >
           <Countdown endsAt={view.timerEndsAt} />
-          <TableTalk view={view} max={3} />
+          <TableTalk view={view} compact />
         </Wait>
       );
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import qrcode from 'qrcode-generator';
 import {
   aliveIds,
@@ -507,16 +507,32 @@ function JoinQr({ url }: { url: string }) {
   );
 }
 
-/** What the bots have said at this Round Table. */
-export function TableTalk({ view, max = 4 }: { view: GameState; max?: number }) {
-  const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince).slice(-max);
+/**
+ * Everything the bots have said at this Round Table, oldest first. The list
+ * scrolls, and follows new lines unless someone has scrolled up to read back.
+ */
+export function TableTalk({ view, compact = false }: { view: GameState; compact?: boolean }) {
+  const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince);
+  const box = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (el && following.current) el.scrollTop = el.scrollHeight;
+  }, [lines.length]);
   if (!lines.length) return null;
   return (
-    <div className="table-talk">
-      {lines.map((l) => {
+    <div
+      className={`table-talk${compact ? ' compact' : ''}`}
+      ref={box}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+      }}
+    >
+      {lines.map((l, i) => {
         const p = playerById(view, l.from);
         return p ? (
-          <div className="talk-line" key={`${l.from}-${l.at}`}>
+          <div className="talk-line" key={`${i}-${l.from}-${l.at}`}>
             <Avatar player={p} />
             <div>
               <div className="who">{p.name}</div>
