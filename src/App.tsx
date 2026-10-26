@@ -37,24 +37,46 @@ export function App() {
 function Home() {
   return (
     <div className="castle landing">
-      <header className="landing-hero">
+      <section className="landing-hero">
         <LogoMark className="hero-mark" />
         <h1 className="logo hero-word">Turncloak</h1>
         <p className="hero-tag">Trust no one at the table</p>
-      </header>
-      <p className="landing-pitch">
-        Hidden Traitors murder by night. The Faithful must banish them by day. <span className="nowrap">4 to 22 players.</span>
-      </p>
-      <Continue />
-      <Doors />
+        <Continue />
+        <Actions />
+        <button className="link" onClick={() => go('demo')}>or try a demo against bots ›</button>
+        <button className="scroll-hint" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>
+          How it plays ⌄
+        </button>
+      </section>
+      <section className="how" id="how" aria-label="How it plays">
+        <p className="landing-pitch">A game of loyalty and betrayal for 4 to 22 players, around one TV and everyone's phones.</p>
+        <ol className="how-steps">
+          {STEPS.map(([title, text], i) => (
+            <li key={title}>
+              <span className="how-n">{['I', 'II', 'III', 'IV'][i]}</span>
+              <div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <button className="btn primary" onClick={() => go('demo')}>Play the demo</button>
+      </section>
       {!ONLINE && <p className="landing-note">Local mode: host and players must be tabs in the same browser.</p>}
       <Footer />
     </div>
   );
 }
 
-/** The three ways in, most used first: guests join, one person hosts, newcomers try the demo. */
-function Doors() {
+const STEPS = [
+  ['Night', 'The Traitors meet in secret and murder one of the Faithful.'],
+  ['Missions', 'Everyone works together to earn gold for the prize pot.'],
+  ['Round Table', 'Accuse, defend, then vote to banish one player.'],
+  ['The end', 'Banish every Traitor and the Faithful win. If the Traitors ever match their numbers, the Traitors take the prize.'],
+];
+
+function Actions() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const host = async () => {
@@ -69,22 +91,13 @@ function Doors() {
     }
   };
   return (
-    <div className="doors">
-      <Door kind="primary" title="Join a game" sub="Got a code from the TV? Start here." onClick={() => go('join')} />
-      <Door title={busy ? 'Opening...' : 'Host a game'} sub="Put this on the TV. Phones join in." onClick={host} disabled={busy} />
-      <Door kind="ghost" title="Try the demo" sub="A full game on this screen against bots." onClick={() => go('demo')} />
+    <>
+      <div className="hero-actions">
+        <button className="btn primary" onClick={() => go('join')}>Join a game</button>
+        <button className="btn" disabled={busy} onClick={host}>{busy ? 'Opening...' : 'Host a game'}</button>
+      </div>
       {error && <p className="red" style={{ margin: 0 }}>Could not create the game: {error}</p>}
-    </div>
-  );
-}
-
-function Door({ title, sub, kind = '', onClick, disabled }: { title: string; sub: string; kind?: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button className={`door ${kind}`} onClick={onClick} disabled={disabled}>
-      <span className="door-title">{title}</span>
-      <span className="door-sub">{sub}</span>
-      <span className="door-arrow" aria-hidden>›</span>
-    </button>
+    </>
   );
 }
 
