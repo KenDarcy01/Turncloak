@@ -70,10 +70,10 @@ function Home() {
 }
 
 const STEPS = [
-  ['Night', 'The Traitors meet in secret and murder one of the Faithful.'],
+  ['Night', 'The Turncloaks meet in secret and murder one of the Truecloaks.'],
   ['Missions', 'Everyone works together to earn gold for the prize pot.'],
   ['Round Table', 'Accuse, defend, then vote to banish one player.'],
-  ['The end', 'Banish every Traitor and the Faithful win. If the Traitors ever match their numbers, the Traitors take the prize.'],
+  ['The end', 'Banish every Turncloak and the Truecloaks win. If the Turncloaks ever match their numbers, the Turncloaks take the prize.'],
 ];
 
 function Actions() {

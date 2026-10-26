@@ -7,7 +7,7 @@ export const HIDDEN = '?';
 
 /**
  * What one screen is allowed to know. The host TV sees only public information;
- * a player additionally sees their own role and, if a Traitor, the Traitors' secrets.
+ * a player additionally sees their own role and, if a Turncloak, the Turncloaks' secrets.
  *
  * This is the single source of truth for secrecy. The Supabase backend writes the
  * output of this function into per-player rows guarded by row level security, so
@@ -21,7 +21,7 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   const roles: Record<string, Role> = {};
   for (const p of s.players) {
-    const publiclyKnown = over || (!p.alive && p.out); // banished roles are revealed; murder victims are Faithful
+    const publiclyKnown = over || (!p.alive && p.out); // banished roles are revealed; murder victims are Truecloaks
     const banishedNotYetRevealed =
       s.phase === 'banishment' && s.banishment?.banishedId === p.id && s.banishment.step !== 'role';
     if (
@@ -61,7 +61,7 @@ export function viewFor(full: GameState, viewer: string): GameState {
   };
 }
 
-/** Until the breakfast reveal, the victim still looks alive to everyone but the Traitors. */
+/** Until the breakfast reveal, the victim still looks alive to everyone but the Turncloaks. */
 function hideUnrevealedMurder(s: GameState, viewer: string): GameState {
   if (s.phase !== 'breakfast' || s.breakfastRevealed || !s.murdered) return s;
   if (s.roles[viewer] === 'traitor') return s;

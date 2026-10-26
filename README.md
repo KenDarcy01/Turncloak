@@ -1,6 +1,6 @@
 # Turncloak
 
-A party game of loyalty and betrayal for 4 to 22 players. A host screen on the TV runs the game; everyone plays on their phone. Hidden Traitors murder by night, the Faithful try to banish them at the Round Table, and missions build a prize pot that the winners split.
+A party game of loyalty and betrayal for 4 to 22 players. A host screen on the TV runs the game; everyone plays on their phone. Hidden Turncloaks murder by night, the Truecloaks try to banish them at the Round Table, and missions build a prize pot that the winners split.
 
 "Turncloak" is a working name. The game is inspired by the reality show format but uses its own name, copy, missions and look.
 
@@ -18,14 +18,14 @@ npm run build:preview   # single-file build of the demo (dist-preview/)
 
 ## How a game runs
 
-1. **Lobby.** Players join with a four letter code. The host can add bots and choose the number of Traitors (auto: 1 for up to 6 players, 2 for up to 11, then 3).
-2. **Roles.** Each phone shows a press-and-hold role card. Traitors also see who the other Traitors are.
+1. **Lobby.** Players join with a four letter code. The host can add bots and choose the number of Turncloaks (auto: 1 for up to 6 players, 2 for up to 11, then 3).
+2. **Roles.** Each phone shows a press-and-hold role card. Turncloaks also see who the other Turncloaks are.
 3. **Day.** Breakfast reveals who was murdered (from day 2), then a mission card for the room. The host records Success, Half or Failed, which adds gold to the pot.
 4. **Round Table.** Optional debate timer, then a timed vote on phones. Votes are read out one by one on the TV. A tie triggers one revote among the tied players (who sit out); a second tie is settled at random. The banished player's role is revealed.
-5. **Night.** Traitors pick a Faithful to murder and can chat privately. Faithful phones get a decoy task (a private suspicion diary) so every phone looks busy.
-6. **Endgame.** When `finalCount` players remain (default 4), everyone votes to end the game or banish again. A unanimous "end" finishes the game: if any Traitor is left, the Traitors take the whole pot, otherwise the Faithful split it.
+5. **Night.** Turncloaks pick a Truecloak to murder and can chat privately. Truecloak phones get a decoy task (a private suspicion diary) so every phone looks busy.
+6. **Endgame.** When `finalCount` players remain (default 4), everyone votes to end the game or banish again. A unanimous "end" finishes the game: if any Turncloak is left, the Turncloaks take the whole pot, otherwise the Truecloaks split it.
 
-The game also ends early if every Traitor is banished, or if Traitors reach parity with the Faithful.
+The game also ends early if every Turncloak is banished, or if Turncloaks reach parity with the Truecloaks.
 
 ## Phone apps
 
@@ -49,7 +49,7 @@ supabase/       Online backend draft: schema, RLS, edge function
 
 ## Secrecy
 
-`viewFor()` is the single place that decides who knows what: the TV sees public information, a Faithful sees only their own role, a Traitor also sees fellow Traitors, the murder pick and the Traitor chat. Votes stay hidden until read out, and a murder victim looks alive until the breakfast reveal.
+`viewFor()` is the single place that decides who knows what: the TV sees public information, a Truecloak sees only their own role, a Turncloak also sees fellow Turncloaks, the murder pick and the Turncloak chat. Votes stay hidden until read out, and a murder victim looks alive until the breakfast reveal.
 
 ## Online play (Supabase)
 
@@ -67,4 +67,4 @@ Bots sit out the physical missions: mission jobs and secret prompts only go to r
 
 ## Ideas queued for later
 
-Recruitment of a new Traitor, ultimatum murders, shields won in missions, a dagger that doubles a vote, in-app mission mini-games, sound and music, remote play over video.
+Recruitment of a new Turncloak, ultimatum murders, shields won in missions, a dagger that doubles a vote, in-app mission mini-games, sound and music, remote play over video.

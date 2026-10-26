@@ -68,7 +68,7 @@ export function autoTraitorCount(players: number): number {
 export function traitorCountFor(state: GameState): number {
   const n = state.players.length;
   const wanted = state.settings.traitorCount || autoTraitorCount(n);
-  // Always leave the Faithful a clear majority at the start.
+  // Always leave the Truecloaks a clear majority at the start.
   return Math.max(1, Math.min(wanted, Math.floor((n - 1) / 2)));
 }
 
@@ -94,7 +94,7 @@ export function eligibleVoters(s: GameState): string[] {
   return voters.length > 0 ? voters : ids;
 }
 
-/** Anyone alive who is not a known Traitor. Works on a Traitor's redacted view as well as the full state. */
+/** Anyone alive who is not a known Turncloak. Works on a Turncloak's redacted view as well as the full state. */
 export function murderTargets(s: GameState): string[] {
   return alive(s).filter((p) => s.roles[p.id] !== 'traitor').map((p) => p.id);
 }
@@ -146,7 +146,7 @@ function log(s: GameState, text: string): GameState {
 function finish(s: GameState, winner: Team): GameState {
   return log(
     { ...s, phase: 'gameOver', winner, timerEndsAt: null },
-    winner === 'faithful' ? 'The Faithful prevailed.' : 'The Traitors claimed the prize.',
+    winner === 'faithful' ? 'The Truecloaks prevailed.' : 'The Turncloaks claimed the prize.',
   );
 }
 
@@ -207,7 +207,7 @@ function afterLoss(s: GameState, then: (s: GameState) => GameState): GameState {
   return then(s);
 }
 
-/** Resolve the Traitors' choice. Majority wins; ties and no-shows are settled at random. */
+/** Resolve the Turncloaks' choice. Majority wins; ties and no-shows are settled at random. */
 export function resolveMurder(s: GameState, rng: () => number): string | null {
   const targets = murderTargets(s);
   if (targets.length === 0) return null;
@@ -259,7 +259,7 @@ function revealBanished(s: GameState): GameState {
     p.id === id ? { ...p, alive: false, out: { by: 'banished' as const, day: s.day } } : p,
   );
   const name = playerById(s, id)?.name ?? 'Someone';
-  const role = s.roles[id] === 'traitor' ? 'a Traitor' : 'Faithful';
+  const role = s.roles[id] === 'traitor' ? 'a Turncloak' : 'a Truecloak';
   return log({ ...s, players, banishment: { ...b, step: 'role' } }, `${name} was banished, and was ${role}.`);
 }
 
@@ -356,8 +356,8 @@ function addPlayer(s: GameState, id: string, name: string, isBot: boolean): Game
   };
   const next = { ...s, players: [...s.players, player] };
   if (!late) return next;
-  // Late arrivals are always Faithful: the Traitors were chosen when the doors first closed.
-  return log({ ...next, roles: { ...s.roles, [id]: 'faithful' } }, `${player.name} arrived at the castle as a new Faithful.`);
+  // Late arrivals are always Truecloaks: the Turncloaks were chosen when the doors first closed.
+  return log({ ...next, roles: { ...s.roles, [id]: 'faithful' } }, `${player.name} arrived at the castle as a new Truecloak.`);
 }
 
 /** The host takes someone out of the game. */
@@ -370,7 +370,7 @@ function removePlayer(s: GameState, id: string, ctx: Ctx): GameState {
   const players = s.players.map((p) => (p.id === id ? { ...p, alive: false, away: undefined, out: { by: 'left' as const, day: s.day } } : p));
   const without = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([k, v]) => k !== id && v !== id)) as Record<string, T>;
   const candidates = s.voteCandidates?.filter((c) => c !== id) ?? null;
-  const role = s.roles[id] === 'traitor' ? 'a Traitor' : 'Faithful';
+  const role = s.roles[id] === 'traitor' ? 'a Turncloak' : 'a Truecloak';
   let next: GameState = log(
     {
       ...s,
@@ -422,7 +422,7 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
     case 'start': {
       if (s.phase !== 'lobby' || s.players.length < MIN_PLAYERS) return s;
       const roles = assignRoles(s, ctx);
-      return log({ ...s, phase: 'roleReveal', roles, day: 1 }, 'The game begins. The Traitors have been chosen.');
+      return log({ ...s, phase: 'roleReveal', roles, day: 1 }, 'The game begins. The Turncloaks have been chosen.');
     }
     case 'advance':
       return advance(s, ctx);

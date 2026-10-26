@@ -61,6 +61,9 @@ export function Avatar({ player, size, voted }: { player: Player; size?: 'lg'; v
   );
 }
 
+/** What players call each role. The stored ids stay 'traitor' and 'faithful' so saved games keep working. */
+export const roleName = (role: Role) => (role === 'traitor' ? 'turncloak' : 'truecloak');
+
 export function Seat({ player, role, voted, note }: { player: Player; role?: Role; voted?: boolean; note?: ReactNode }) {
   return (
     <div className="seat">
@@ -68,7 +71,7 @@ export function Seat({ player, role, voted, note }: { player: Player; role?: Rol
       <div className="name">{player.name}</div>
       {!player.alive && (
         <div className={`tag ${role === 'traitor' ? 'red' : role ? 'gold' : 'muted'}`}>
-          {player.out?.by === 'murdered' ? 'murdered' : player.out?.by === 'left' ? `left${role ? ` · ${role}` : ''}` : role ?? 'out'}
+          {player.out?.by === 'murdered' ? 'murdered' : player.out?.by === 'left' ? `left${role ? ` · ${roleName(role)}` : ''}` : role ? roleName(role) : 'out'}
         </div>
       )}
       {player.alive && player.away && <div className="tag muted">new phone</div>}
@@ -129,13 +132,13 @@ export function RoleCard({ role, fellows }: { role: Role; fellows: Player[] }) {
       {shown ? (
         <>
           <div className="eyebrow">You are</div>
-          <div className={`role-name ${role === 'traitor' ? 'red' : 'gold'}`}>{role === 'traitor' ? 'A Traitor' : 'Faithful'}</div>
+          <div className={`role-name ${role === 'traitor' ? 'red' : 'gold'}`}>{role === 'traitor' ? 'A Turncloak' : 'A Truecloak'}</div>
           {role === 'traitor' ? (
             <div className="muted">
-              {fellows.length ? <>Your fellow Traitors: {fellows.map((f) => f.name).join(', ')}</> : 'You walk alone.'}
+              {fellows.length ? <>Your fellow Turncloaks: {fellows.map((f) => f.name).join(', ')}</> : 'You walk alone.'}
             </div>
           ) : (
-            <div className="muted">Find the Traitors before they find you.</div>
+            <div className="muted">Find the Turncloaks before they find you.</div>
           )}
         </>
       ) : (

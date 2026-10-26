@@ -200,7 +200,7 @@ function TakeSeat({
         {open && (
           <>
             <div className="eyebrow">{first ? 'Take your seat' : 'Add another player to this phone'}</div>
-            {info.phase !== 'lobby' && <p className="muted" style={{ margin: 0 }}>The game has started. New players join as Faithful.</p>}
+            {info.phase !== 'lobby' && <p className="muted" style={{ margin: 0 }}>The game has started. New players join as Truecloaks.</p>}
             <input
               className="field"
               placeholder="Name"

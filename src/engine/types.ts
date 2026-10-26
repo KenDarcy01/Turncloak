@@ -88,7 +88,7 @@ export interface GameState {
   phase: Phase;
   day: number;
   players: Player[];
-  /** Secret. Never shown to a player except their own role (and fellow Traitors). */
+  /** Secret. Never shown to a player except their own role (and fellow Turncloaks). */
   roles: Record<string, Role>;
   settings: Settings;
   pot: number;
@@ -102,11 +102,11 @@ export interface GameState {
   voteRound: number;
   banishment: BanishmentState | null;
 
-  /** Secret: Traitor -> murder target. */
+  /** Secret: Turncloak -> murder target. */
   nightPicks: Record<string, string>;
-  /** Secret: Traitors' private chat for the whole game. */
+  /** Secret: Turncloaks' private chat for the whole game. */
   traitorChat: ChatMessage[];
-  /** Faithful "decoy" task at night, so every phone looks busy: player -> suspect. */
+  /** Truecloak "decoy" task at night, so every phone looks busy: player -> suspect. */
   suspicions: Record<string, string>;
   /** Who was found murdered at the latest breakfast. */
   murdered: string | null;

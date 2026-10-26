@@ -59,7 +59,7 @@ New personal Play developer accounts must run a closed test with at least 12 tes
 
 ## Store listing notes
 
-- **Name and keywords.** Do not use "The Traitors" or "Traitors" as a brand in the name, subtitle, keywords, description or screenshots. Describing the game as "a party game of loyalty and betrayal" is safe.
+- **Name and keywords.** Do not mention the TV show "The Traitors", or call the roles "Traitors" or "Faithful", in the name, subtitle, keywords, description or screenshots. The game's roles are Turncloaks and Truecloaks. Describing the game as "a party game of loyalty and betrayal" is safe.
 - **Privacy answers.** App Store "Data Not Linked to You": User Content (player names, chat, notes) and Identifiers (the anonymous user id), both used for App Functionality only. No tracking. Google Play Data safety: the same, data encrypted in transit, users can request deletion (the "Reset my data" button).
 - **Account deletion.** There are no accounts, only anonymous guest ids, and "Reset my data" deletes the guest id and its games on the server.
 - **Age rating.** The game talks about "murder" in a cartoon party-game sense. Expect 12+ on iOS (infrequent mild violence, unrestricted chat between players) and Teen on Google Play.

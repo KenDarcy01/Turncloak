@@ -120,7 +120,7 @@ export const RESORT_MISSIONS: MissionCard[] = [
     time: 'About 3 minutes',
     steps: [
       'Everyone gets into the coldest pool together and stands in a line, water up to the shoulders. Anyone who does not want to get in becomes the timekeeper on the poolside, but counts as missing.',
-      'Going down the line, each player says one line of the oath below, loudly, while staying in: “I swear I am Faithful.” “I swear I am not a Traitor.” and so on, inventing their own oath in the same pattern.',
+      'Going down the line, each player says one line of the oath below, loudly, while staying in: “I swear I am a Truecloak.” “I swear I am not a Turncloak.” and so on, inventing their own oath in the same pattern.',
       'Keep going round until 60 seconds have passed. Anyone who climbs out before the minute is up is missing.',
     ],
     scoring: { success: 'Everyone stays in for the full minute', partial: 'No more than two players missing', fail: 'Three or more missing' },
