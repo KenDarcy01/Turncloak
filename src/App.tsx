@@ -3,8 +3,9 @@ import { makeCode } from './engine/game';
 import { TV } from './engine/view';
 import { LocalHost, type GameConnection } from './net/backend';
 import { deviceFor } from './net/device';
-import { connectOnline, hostGame, ONLINE } from './net/supabase';
+import { connectOnline, deleteMe, hostGame, ONLINE } from './net/supabase';
 import { storage } from './net/storage';
+import { NATIVE, WEB_URL } from './native';
 import { Demo } from './screens/Demo';
 import { HostScreen } from './screens/HostScreen';
 import { PhoneHub } from './screens/PhoneHub';
@@ -66,7 +67,33 @@ function Home() {
           Local mode: host and players must be tabs in the same browser.
         </p>
       )}
+      <Footer />
     </div>
+  );
+}
+
+function Footer() {
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'failed'>('idle');
+  const reset = async () => {
+    if (!window.confirm('Delete your games and everything this device has saved? This cannot be undone.')) return;
+    setState('busy');
+    let ok = true;
+    try {
+      if (ONLINE) await deleteMe();
+    } catch {
+      ok = false;
+    }
+    storage.clear();
+    setState(ok ? 'done' : 'failed');
+  };
+  return (
+    <p className="muted row" style={{ fontSize: '0.9rem', gap: '1.25rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+      <a href="privacy.html">Privacy</a>
+      <a href="support.html">Help</a>
+      <button className="btn small" disabled={state === 'busy'} onClick={reset}>Reset my data</button>
+      {state === 'done' && <span>Your data has been deleted.</span>}
+      {state === 'failed' && <span className="red">Cleared this device, but the server could not be reached. Try again later.</span>}
+    </p>
   );
 }
 
@@ -93,7 +120,9 @@ function HostButton() {
 }
 
 function joinUrlFor(code: string) {
-  return `${window.location.origin}${window.location.pathname}#/join/${code}`;
+  // Inside the app the page address is local to the phone, so invites point at the web game.
+  const base = NATIVE ? WEB_URL : `${window.location.origin}${window.location.pathname}`;
+  return `${base}#/join/${code}`;
 }
 
 function Host({ code }: { code: string }) {

@@ -22,6 +22,9 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+/* Keep the game clear of the notch and home bar on phones (the app and home-screen installs draw edge to edge). */
+#root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+a { color: var(--gold); }
 body {
   margin: 0;
   background: var(--ink);

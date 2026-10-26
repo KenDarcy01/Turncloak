@@ -26,6 +26,14 @@ export const storage = {
   setJSON(key: string, value: unknown) {
     storage.set(key, JSON.stringify(value));
   },
+  /** Forgets everything this game saved on the device. */
+  clear() {
+    try {
+      window.localStorage.clear();
+    } catch {
+      /* ignore */
+    }
+  },
 };
 
 export function randomId(): string {

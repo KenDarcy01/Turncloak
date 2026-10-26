@@ -27,6 +27,10 @@ npm run build:preview   # single-file build of the demo (dist-preview/)
 
 The game also ends early if every Traitor is banished, or if Traitors reach parity with the Faithful.
 
+## Phone apps
+
+The same build ships to the App Store and Google Play through Capacitor (`ios/`, `android/`, `capacitor.config.ts`), built in the cloud by GitHub Actions. Setup, secrets and store listing notes: [docs/app-stores.md](docs/app-stores.md).
+
 ## Code layout
 
 ```

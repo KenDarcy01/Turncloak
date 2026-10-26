@@ -26,7 +26,13 @@ Deno.serve(async (req) => {
   const uid = auth.user?.id;
   if (!uid) return json({ error: 'not signed in' }, 401);
 
-  const { code, action } = (await req.json()) as { code: string; action: Action | { type: 'create' } };
+  const { code, action } = (await req.json()) as { code: string; action: Action | { type: 'create' } | { type: 'deleteMe' } };
+
+  // "Reset my data": deleting the guest user cascades to the games they hosted and the seats they held.
+  if (action.type === 'deleteMe') {
+    const { error } = await admin.auth.admin.deleteUser(uid);
+    return error ? json({ error: error.message }, 500) : json({ ok: true });
+  }
 
   if (action.type === 'create') {
     const { data: game, error } = await admin.from('games').insert({ code, host_user_id: uid }).select().single();

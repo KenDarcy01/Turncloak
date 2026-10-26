@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Turncloak</string>
+    <string name="title_activity_main">Turncloak</string>
+    <string name="package_name">com.turncloak.app</string>
+    <string name="custom_url_scheme">com.turncloak.app</string>
+</resources>

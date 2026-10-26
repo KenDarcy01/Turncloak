@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { alive, eligibleVoters, murderTargets, playerById, voteTargets } from '../engine/game';
 import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
 import type { GameConnection } from '../net/backend';
+import { buzz, useKeepAwake } from '../native';
 import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/components';
 import { TableTalk } from './HostScreen';
 
@@ -10,6 +11,8 @@ import { TableTalk } from './HostScreen';
 export function PlayerScreen({ conn, top }: { conn: GameConnection; top?: ReactNode }) {
   const view = useView(conn);
   const me = view ? playerById(view, conn.viewer) : undefined;
+  useKeepAwake();
+  useBuzz(view, conn.viewer);
 
   if (!view) {
     return (
@@ -50,6 +53,25 @@ export function needsAction(view: GameState | undefined, id: string): boolean {
   if (view.phase === 'night') return view.roles[id] === 'traitor' ? !view.nightPicks[id] : !view.suspicions[id];
   if (view.phase === 'endgameVote') return !view.endVotes[id];
   return false;
+}
+
+/** Buzzes the phone when something happens to this player: roles dealt, their turn, out of the game, game over. */
+function useBuzz(view: GameState | null, id: string) {
+  const phase = view?.phase;
+  const alive = view ? playerById(view, id)?.alive : undefined;
+  const turn = needsAction(view ?? undefined, id);
+  const won = !!view?.winner && view.roles[id] === view.winner;
+  const prev = useRef<{ phase?: string; alive?: boolean; turn?: boolean }>({});
+  useEffect(() => {
+    const p = prev.current;
+    prev.current = { phase, alive, turn };
+    // The first view is where this phone came in, not something that just happened.
+    if (p.phase === undefined) return;
+    if (phase === 'gameOver' && p.phase !== phase) buzz(won ? 'win' : 'lose');
+    else if (phase === 'roleReveal' && p.phase !== phase) buzz('thud');
+    else if (p.alive && alive === false) buzz('lose');
+    else if (turn && !p.turn) buzz('turn');
+  }, [phase, alive, turn, won]);
 }
 
 function Shell({ children, me, pot }: { children: ReactNode; me?: Player; pot?: number }) {
@@ -194,7 +216,7 @@ function Vote({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
         <Countdown endsAt={view.timerEndsAt} />
       </div>
       <PlayerChoice players={targets} selected={choice} onPick={setChoice} />
-      <button className="btn primary block" disabled={!choice} onClick={() => choice && send({ type: 'castVote', playerId: me.id, targetId: choice })}>
+      <button className="btn primary block" disabled={!choice} onClick={() => { if (!choice) return; buzz('tap'); send({ type: 'castVote', playerId: me.id, targetId: choice }); }}>
         {choice ? `Lock in ${playerById(view, choice)?.name}` : 'Choose a name'}
       </button>
     </div>

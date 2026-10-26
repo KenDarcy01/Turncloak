@@ -14,6 +14,7 @@ import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
+import { shareInvite, useKeepAwake } from '../native';
 import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
 import { MissionBoard } from './MissionBoard';
 
@@ -31,6 +32,7 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
   const view = useView(conn);
   const [panel, setPanel] = useState(false);
   useBotHeartbeat(online ? conn : null, view);
+  useKeepAwake();
   if (!view) return <div className="castle tv"><div className="tv-stage muted">Lighting the candles...</div></div>;
   const send = (a: Action) => conn.send(a);
   const night = view.phase === 'night';
@@ -98,6 +100,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <div className="eyebrow">Join on your phone with code</div>
             <div className="join-code">{view.code}</div>
             {joinUrl && !compact && (online ? <JoinQr url={joinUrl} /> : <div className="muted">{joinUrl}</div>)}
+            {joinUrl && !compact && <ShareButton code={view.code} url={joinUrl} />}
             <Seats view={view} />
             {n === 0 && <div className="tv-sub muted">Waiting for guests to arrive at the castle...</div>}
           </div>
@@ -523,5 +526,16 @@ export function TableTalk({ view, max = 4 }: { view: GameState; max?: number }) 
         ) : null;
       })}
     </div>
+  );
+}
+
+/** Sends the invite through the phone's share sheet. Hidden where there is none. */
+function ShareButton({ code, url }: { code: string; url: string }) {
+  const [gone, setGone] = useState(false);
+  if (gone) return null;
+  return (
+    <button className="btn small" onClick={async () => !(await shareInvite(code, url)) && setGone(true)}>
+      Share the invite
+    </button>
   );
 }
