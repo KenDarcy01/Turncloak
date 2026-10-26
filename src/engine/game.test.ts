@@ -234,7 +234,7 @@ describe('bots', () => {
     return { s, step: (a: Action) => (s = reduce(s, a, ctx())), tick: (ms: number) => { now += ms; s = reduce(s, { type: 'botTick' }, ctx()); }, get: () => s };
   }
 
-  it('argue at the Council, naming real players', () => {
+  it('argue at the Round Table, naming real players', () => {
     const g = botGame(2, 6, 3);
     g.step({ type: 'advance' });
     g.step({ type: 'missionResult', result: 'success' });

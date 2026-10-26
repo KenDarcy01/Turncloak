@@ -21,7 +21,7 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   const roles: Record<string, Role> = {};
   for (const p of s.players) {
-    const publiclyKnown = over || (!p.alive && p.out); // exiled roles are revealed; night victims are Truecloaks
+    const publiclyKnown = over || (!p.alive && p.out); // banished roles are revealed; murder victims are Truecloaks
     const banishedNotYetRevealed =
       s.phase === 'banishment' && s.banishment?.banishedId === p.id && s.banishment.step !== 'role';
     if (
@@ -70,7 +70,7 @@ function hideUnrevealedMurder(s: GameState, viewer: string): GameState {
     ...s,
     murdered: null,
     players: s.players.map((p) => (p.id === victim ? { ...p, alive: true, out: undefined } : p)),
-    log: s.log.filter((l) => !(l.day === s.day && l.text.includes('struck down'))),
+    log: s.log.filter((l) => !(l.day === s.day && l.text.includes('murdered'))),
   };
 }
 

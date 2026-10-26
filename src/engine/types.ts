@@ -57,7 +57,7 @@ export interface MissionState {
 }
 
 export interface BanishmentState {
-  /** Order in which the votes are read out at the Council. */
+  /** Order in which the votes are read out at the Round Table. */
   order: string[];
   /** Votes snapshot: voter -> target. */
   votes: Record<string, string>;
@@ -67,7 +67,7 @@ export interface BanishmentState {
   banishedId: string | null;
 }
 
-/** Something said out loud at the Council by a bot, shown on every screen. */
+/** Something said out loud at the Round Table by a bot, shown on every screen. */
 export interface TalkLine {
   from: string;
   text: string;
@@ -95,20 +95,20 @@ export interface GameState {
   usedMissions: string[];
   mission: MissionState | null;
 
-  /** Council votes for the current round: voter -> target. */
+  /** Round Table votes for the current round: voter -> target. */
   votes: Record<string, string>;
   /** When set, only these players can be voted for (a revote after a tie). */
   voteCandidates: string[] | null;
   voteRound: number;
   banishment: BanishmentState | null;
 
-  /** Secret: Turncloak -> night target. */
+  /** Secret: Turncloak -> murder target. */
   nightPicks: Record<string, string>;
   /** Secret: Turncloaks' private chat for the whole game. */
   traitorChat: ChatMessage[];
   /** Truecloak "decoy" task at night, so every phone looks busy: player -> suspect. */
   suspicions: Record<string, string>;
-  /** Who was found struck down at the latest breakfast. */
+  /** Who was found murdered at the latest breakfast. */
   murdered: string | null;
   breakfastRevealed: boolean;
 
@@ -118,7 +118,7 @@ export interface GameState {
   /** The host is letting new players join a game that has already started. */
   doorsOpen?: boolean;
 
-  /** Bot speeches at the Council, for the whole game. Public. */
+  /** Bot speeches at the Round Table, for the whole game. Public. */
   talk: TalkLine[];
   /** Epoch millis when the current phase began. Paces the bots. */
   phaseSince: number;

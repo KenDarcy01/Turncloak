@@ -98,7 +98,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     return (
       <div className="stack center fade-in">
         <div className="eyebrow">You are out</div>
-        <h2>{me.out?.by === 'murdered' ? 'You were struck down in the night' : me.out?.by === 'left' ? 'You have left the castle' : 'You were exiled'}</h2>
+        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the castle' : 'You were banished'}</h2>
         <p className="lead">Stay and watch, but keep what you know to yourself.</p>
       </div>
     );
@@ -133,7 +133,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     case 'roundtable':
       return (
         <Wait
-          eyebrow="The Council"
+          eyebrow="The Round Table"
           title="Make your case"
           lead={traitor ? 'Blend in. Cast suspicion on a Truecloak.' : 'Who has been acting strangely?'}
         >
@@ -151,7 +151,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       return (
         <div className="stack center">
           <div className="eyebrow">The votes are read</div>
-          <h2>{b.banishedId === me.id && b.step === 'verdict' ? 'You have been exiled' : 'Watch the big screen'}</h2>
+          <h2>{b.banishedId === me.id && b.step === 'verdict' ? 'You have been banished' : 'Watch the big screen'}</h2>
           {b.banishedId === me.id && b.step === 'verdict' ? (
             <p className="lead">Stand, and tell the castle who you really are.</p>
           ) : (
@@ -210,7 +210,7 @@ function Vote({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       <div className="row">
         <div>
           <div className="eyebrow">The vote</div>
-          <h2>Who should be exiled?</h2>
+          <h2>Who should be banished?</h2>
         </div>
         <div className="spacer" />
         <Countdown endsAt={view.timerEndsAt} />
@@ -295,7 +295,7 @@ function EndVote({ view, me, send }: { view: GameState; me: Player; send: (a: Ac
         End the game
       </button>
       <button className={`btn block ${mine === 'banish' ? 'primary' : ''}`} disabled={!!mine} onClick={() => send({ type: 'endVote', playerId: me.id, choice: 'banish' })}>
-        Exile again
+        Banish again
       </button>
       {mine && <p className="muted center">Your choice is locked.</p>}
     </div>

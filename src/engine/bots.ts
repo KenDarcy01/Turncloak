@@ -3,18 +3,18 @@ import type { Action, GameState, TalkLine } from './types';
 
 /**
  * Stand-in players, so a small group can still have a full castle. Bots vote,
- * strike at night, keep a night diary and argue at the Council. They have no hidden
+ * murder, keep a night diary and argue at the Round Table. They have no hidden
  * knowledge beyond their own role (and fellow Turncloaks, if they are one).
  */
 
 const pickOf = <T,>(arr: T[], rng: () => number) => arr[Math.floor(rng() * arr.length)];
 
-/** The latest thing each bot said this Council, keyed by speaker. */
+/** The latest thing each bot said this Round Table, keyed by speaker. */
 function talkToday(s: GameState): TalkLine[] {
   return s.talk.filter((l) => l.day === s.day && l.at >= s.phaseSince);
 }
 
-/** Who a bot would like to see exiled, from what it said or a fresh suspicion. */
+/** Who a bot would like to see banished, from what it said or a fresh suspicion. */
 function suspectFor(s: GameState, botId: string, rng: () => number, among = aliveIds(s)): string | undefined {
   const options = among.filter((id) => id !== botId);
   if (!options.length) return undefined;
@@ -96,13 +96,13 @@ const AGREE = [
 
 const DEFEND = [
   'I can hear my name being said. I have been a Truecloak since the very first night, and I will prove it.',
-  'Exile me and you lose a Truecloak. Then the Turncloaks laugh all the way to breakfast.',
+  'Banish me and you lose a Truecloak. Then the Turncloaks laugh all the way to breakfast.',
   'Of course you suspect me. That is exactly what the Turncloaks want you to do.',
 ];
 
 const fill = (tpl: string, t?: string, sp?: string) => tpl.replaceAll('{t}', t ?? 'someone').replaceAll('{s}', sp ?? 'them');
 
-/** One line of Council argument from a bot that has not spoken much yet. */
+/** One line of Round Table argument from a bot that has not spoken much yet. */
 function speak(s: GameState, ctx: Ctx): TalkLine | null {
   const today = talkToday(s);
   const bots = alive(s).filter((p) => p.isBot && today.filter((l) => l.from === p.id).length < 2);
@@ -148,7 +148,7 @@ export const BOT_TRAITOR_LINES = [
 
 /**
  * Called on every host tick. Bots act at a human pace, an expired vote closes,
- * and bots speak at the Council.
+ * and bots speak at the Round Table.
  */
 export function botTick(s: GameState, ctx: Ctx): GameState {
   const elapsed = ctx.now - (s.phaseSince || 0);

@@ -164,7 +164,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             ) : victim ? (
               <>
                 <Avatar player={victim} size="lg" />
-                <div className="tv-title slow-in">{victim.name} was struck down</div>
+                <div className="tv-title slow-in">{victim.name} was murdered</div>
                 <div className="tv-sub">They were a Truecloak. They may stay to watch, but must not speak of the game.</div>
               </>
             ) : (
@@ -172,7 +172,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             )}
             <Seats view={view} />
           </div>
-          <Controls>{view.breakfastRevealed ? next('To the mission') : next('Reveal who fell')}</Controls>
+          <Controls>{view.breakfastRevealed ? next('To the mission') : next('Reveal the murder')}</Controls>
         </>
       );
     }
@@ -190,7 +190,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
             <button className={`btn ${r === 'partial' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'partial' })}>Half</button>
             <button className={`btn ${r === 'fail' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'fail' })}>Failed</button>
-            {r !== 'pending' && next('To the Council')}
+            {r !== 'pending' && next('To the Round Table')}
           </Controls>
         </>
       );
@@ -201,8 +201,8 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
       return (
         <>
           <div className="tv-stage">
-            <div className="eyebrow">Day {view.day} · The Council</div>
-            <div className="tv-title fade-in">{endgame ? 'Another exile' : 'Who do you suspect?'}</div>
+            <div className="eyebrow">Day {view.day} · The Round Table</div>
+            <div className="tv-title fade-in">{endgame ? 'Another banishment' : 'Who do you suspect?'}</div>
             <div className="tv-sub">Speak your suspicions. Defend yourself. When the vote opens, each of you chooses one name on your phone.</div>
             <Countdown endsAt={view.timerEndsAt} />
             <TableTalk view={view} />
@@ -280,13 +280,13 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
                   <div key={id} className="vote-line" style={{ animationDelay: `${i * 0.6}s` }}>
                     <span>{name(id)}</span>
                     <span className="arrow">votes to</span>
-                    <span className={view.endVotes[id] === 'end' ? 'gold' : 'red'}>{view.endVotes[id] === 'end' ? 'End the game' : 'Exile again'}</span>
+                    <span className={view.endVotes[id] === 'end' ? 'gold' : 'red'}>{view.endVotes[id] === 'end' ? 'End the game' : 'Banish again'}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <Controls>{ready && next(ids.every((id) => view.endVotes[id] === 'end') ? 'Reveal the truth' : 'Back to the Council')}</Controls>
+          <Controls>{ready && next(ids.every((id) => view.endVotes[id] === 'end') ? 'Reveal the truth' : 'Back to the Round Table')}</Controls>
         </>
       );
     }
@@ -356,7 +356,7 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
         {b.step === 'verdict' && banished ? (
           <>
             <Avatar player={banished} size="lg" />
-            <div className="tv-title slow-in">{banished.name}, you have been exiled</div>
+            <div className="tv-title slow-in">{banished.name}, you have been banished</div>
             {b.tied.length > 1 && <div className="muted">Still tied after the revote, so fate decided.</div>}
           </>
         ) : b.step === 'tie' ? (
@@ -507,7 +507,7 @@ function JoinQr({ url }: { url: string }) {
   );
 }
 
-/** What the bots have said at this Council. */
+/** What the bots have said at this Round Table. */
 export function TableTalk({ view, max = 4 }: { view: GameState; max?: number }) {
   const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince).slice(-max);
   if (!lines.length) return null;

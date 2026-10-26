@@ -59,9 +59,9 @@ New personal Play developer accounts must run a closed test with at least 12 tes
 
 ## Store listing notes
 
-- **Name and keywords.** Do not mention the TV show "The Traitors", or use its terms ("Traitors", "Faithful", "Round Table", "banishment") in the name, subtitle, keywords, description or screenshots. The game uses its own words: Turncloaks, Truecloaks, the Council and exile. Describing the game as "a party game of loyalty and betrayal" is safe.
+- **Name and keywords.** Do not mention the TV show "The Traitors", or call the roles "Traitors" or "Faithful", in the name, subtitle, keywords, description or screenshots. The game's roles are Turncloaks and Truecloaks. Describing the game as "a party game of loyalty and betrayal" is safe.
 - **Privacy answers.** App Store "Data Not Linked to You": User Content (player names, chat, notes) and Identifiers (the anonymous user id), both used for App Functionality only. No tracking. Google Play Data safety: the same, data encrypted in transit, users can request deletion (the "Reset my data" button).
 - **Account deletion.** There are no accounts, only anonymous guest ids, and "Reset my data" deletes the guest id and its games on the server.
-- **Age rating.** The game has players "struck down" at night by a dagger, in a cartoon party-game sense. Expect 12+ on iOS (infrequent mild violence, unrestricted chat between players) and Teen on Google Play.
+- **Age rating.** The game talks about "murder" in a cartoon party-game sense. Expect 12+ on iOS (infrequent mild violence, unrestricted chat between players) and Teen on Google Play.
 - **Review notes for Apple.** Tell the reviewer the app can be tried alone: Home → "Play the demo" plays a full game against bots on one device. Multiplayer needs a second device or the web version at the link above.
-- **Guideline 4.2 (minimum functionality).** Mention the native features in the review notes: haptic feedback for votes, night strikes and your turn, the share sheet for invites, and the screen staying awake during a game.
+- **Guideline 4.2 (minimum functionality).** Mention the native features in the review notes: haptic feedback for votes, murders and your turn, the share sheet for invites, and the screen staying awake during a game.

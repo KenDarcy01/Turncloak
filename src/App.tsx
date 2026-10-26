@@ -70,10 +70,10 @@ function Home() {
 }
 
 const STEPS = [
-  ['Night', 'The Turncloaks meet in secret and strike down one of the Truecloaks.'],
+  ['Night', 'The Turncloaks meet in secret and murder one of the Truecloaks.'],
   ['Missions', 'Everyone works together to earn gold for the prize pot.'],
-  ['Council', 'Accuse, defend, then vote to exile one player.'],
-  ['The end', 'Exile every Turncloak and the Truecloaks win. If the Turncloaks ever match their numbers, the Turncloaks take the prize.'],
+  ['Round Table', 'Accuse, defend, then vote to banish one player.'],
+  ['The end', 'Banish every Turncloak and the Truecloaks win. If the Turncloaks ever match their numbers, the Turncloaks take the prize.'],
 ];
 
 function Actions() {

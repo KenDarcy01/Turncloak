@@ -79,13 +79,13 @@ export const aliveFaithful = (s: GameState) => alive(s).filter((p) => s.roles[p.
 export const playerById = (s: GameState, id: string | null | undefined) =>
   s.players.find((p) => p.id === id);
 
-/** Who may be voted for right now at the Council. */
+/** Who may be voted for right now at the Round Table. */
 export function voteTargets(s: GameState, voterId: string): string[] {
   const pool = s.voteCandidates ?? aliveIds(s);
   return pool.filter((id) => id !== voterId);
 }
 
-/** Who must vote in the current Council round. Tied players sit out a revote. */
+/** Who must vote in the current Round Table round. Tied players sit out a revote. */
 export function eligibleVoters(s: GameState): string[] {
   const tied = s.voteCandidates ?? [];
   const ids = aliveIds(s);
@@ -197,7 +197,7 @@ function enterNight(s: GameState): GameState {
   return { ...s, phase: 'night', nightPicks: {}, suspicions: {}, timerEndsAt: null };
 }
 
-/** After an exile or a night strike: decide whether the game ends, the endgame starts, or play continues. */
+/** After a banishment or a murder: decide whether the game ends, the endgame starts, or play continues. */
 function afterLoss(s: GameState, then: (s: GameState) => GameState): GameState {
   const winner = checkWinner(s);
   if (winner) return finish(s, winner);
@@ -260,7 +260,7 @@ function revealBanished(s: GameState): GameState {
   );
   const name = playerById(s, id)?.name ?? 'Someone';
   const role = s.roles[id] === 'traitor' ? 'a Turncloak' : 'a Truecloak';
-  return log({ ...s, players, banishment: { ...b, step: 'role' } }, `${name} was exiled, and was ${role}.`);
+  return log({ ...s, players, banishment: { ...b, step: 'role' } }, `${name} was banished, and was ${role}.`);
 }
 
 function murder(s: GameState, ctx: Ctx): GameState {
@@ -278,7 +278,7 @@ function murder(s: GameState, ctx: Ctx): GameState {
     murdered: victim,
     breakfastRevealed: false,
     timerEndsAt: null,
-    log: [...s.log, { day, text: `${playerById(s, victim)?.name} was struck down in the night.` }],
+    log: [...s.log, { day, text: `${playerById(s, victim)?.name} was murdered in the night.` }],
   };
 }
 
@@ -329,7 +329,7 @@ function advance(s: GameState, ctx: Ctx): GameState {
       const ids = aliveIds(s);
       const allEnd = ids.every((id) => s.endVotes[id] === 'end');
       if (allEnd) return finish(s, aliveTraitors(s).length > 0 ? 'traitor' : 'faithful');
-      return log(enterRoundtable(s), 'The vote was not unanimous. Another exile.');
+      return log(enterRoundtable(s), 'The vote was not unanimous. Another banishment.');
     }
     default:
       return s;
