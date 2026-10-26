@@ -508,16 +508,20 @@ function JoinQr({ url }: { url: string }) {
 }
 
 /**
- * Everything the bots have said at this Round Table, oldest first. The list
- * scrolls, and follows new lines unless someone has scrolled up to read back.
+ * Everything the bots have said at this Round Table, newest first. The list
+ * scrolls, and stays on the newest line unless someone has scrolled down to
+ * read back, in which case it holds their place as new lines arrive on top.
  */
 export function TableTalk({ view, compact = false }: { view: GameState; compact?: boolean }) {
-  const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince);
+  const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince).reverse();
   const box = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
+  const reading = useRef(false);
+  const height = useRef(0);
   useLayoutEffect(() => {
     const el = box.current;
-    if (el && following.current) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    el.scrollTop = reading.current ? el.scrollTop + el.scrollHeight - height.current : 0;
+    height.current = el.scrollHeight;
   }, [lines.length]);
   if (!lines.length) return null;
   return (
@@ -525,14 +529,13 @@ export function TableTalk({ view, compact = false }: { view: GameState; compact?
       className={`table-talk${compact ? ' compact' : ''}`}
       ref={box}
       onScroll={(e) => {
-        const el = e.currentTarget;
-        following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        reading.current = e.currentTarget.scrollTop > 40;
       }}
     >
       {lines.map((l, i) => {
         const p = playerById(view, l.from);
         return p ? (
-          <div className="talk-line" key={`${i}-${l.from}-${l.at}`}>
+          <div className="talk-line" key={`${lines.length - i}-${l.from}-${l.at}`}>
             <Avatar player={p} />
             <div>
               <div className="who">{p.name}</div>
