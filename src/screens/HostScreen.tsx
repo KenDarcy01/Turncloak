@@ -106,8 +106,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <label className="row muted" style={{ fontSize: '0.9rem' }}>
               Traitors
               <select
-                className="field"
-                style={{ width: 'auto', padding: '6px 10px', fontSize: '0.95rem' }}
+                className="field compact"
                 value={view.settings.traitorCount}
                 onChange={(e) => send({ type: 'updateSettings', settings: { traitorCount: Number(e.target.value) } })}
               >
@@ -120,8 +119,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <label className="row muted" style={{ fontSize: '0.9rem' }}>
               Missions
               <select
-                className="field"
-                style={{ width: 'auto', padding: '6px 10px', fontSize: '0.95rem' }}
+                className="field compact"
                 value={view.settings.missionPack}
                 onChange={(e) => send({ type: 'updateSettings', settings: { missionPack: e.target.value as MissionPack } })}
               >
