@@ -16,7 +16,7 @@ import { useEffect } from 'react';
 export const NATIVE = Capacitor.isNativePlatform();
 
 /** Where the web game lives. Join links and QR codes point here, so phones without the app can play. */
-export const WEB_URL = 'https://kendarcy01.github.io/Turncloak/';
+export const WEB_URL = 'https://turncloak.app/';
 
 const quietly = (p: Promise<unknown>) => p.catch(() => undefined);
 

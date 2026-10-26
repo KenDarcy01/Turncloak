@@ -4,8 +4,8 @@ Turncloak ships to both stores as a [Capacitor](https://capacitorjs.com) app: th
 
 - App id (iOS bundle id and Android package): `com.turncloak.app`. It cannot change after the first upload.
 - Version: `version` in `package.json`. Build numbers come from the workflow run number.
-- Privacy policy: https://kendarcy01.github.io/Turncloak/privacy.html
-- Support page: https://kendarcy01.github.io/Turncloak/support.html
+- Privacy policy: https://turncloak.app/privacy.html
+- Support page: https://turncloak.app/support.html
 
 ## Day to day
 
