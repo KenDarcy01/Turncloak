@@ -3,23 +3,23 @@ import type { Action, GameState, TalkLine } from './types';
 
 /**
  * Stand-in players, so a small group can still have a full castle. Bots vote,
- * murder, keep a night diary and argue at the Round Table. They have no hidden
- * knowledge beyond their own role (and fellow Traitors, if they are one).
+ * strike at night, keep a night diary and argue at the Council. They have no hidden
+ * knowledge beyond their own role (and fellow Turncloaks, if they are one).
  */
 
 const pickOf = <T,>(arr: T[], rng: () => number) => arr[Math.floor(rng() * arr.length)];
 
-/** The latest thing each bot said this Round Table, keyed by speaker. */
+/** The latest thing each bot said this Council, keyed by speaker. */
 function talkToday(s: GameState): TalkLine[] {
   return s.talk.filter((l) => l.day === s.day && l.at >= s.phaseSince);
 }
 
-/** Who a bot would like to see banished, from what it said or a fresh suspicion. */
+/** Who a bot would like to see exiled, from what it said or a fresh suspicion. */
 function suspectFor(s: GameState, botId: string, rng: () => number, among = aliveIds(s)): string | undefined {
   const options = among.filter((id) => id !== botId);
   if (!options.length) return undefined;
   const isTraitor = s.roles[botId] === 'traitor';
-  // Traitors steer suspicion onto Faithful players.
+  // Turncloaks steer suspicion onto Truecloaks.
   const pool = isTraitor ? options.filter((id) => s.roles[id] !== 'traitor') : options;
   const usable = pool.length ? pool : options;
   const said = [...s.talk].reverse().find((l) => l.from === botId && l.day === s.day && l.target)?.target;
@@ -37,7 +37,7 @@ export function botActions(s: GameState, rng: () => number): Action[] {
     for (const b of bots) {
       if (!voters.includes(b.id) || s.votes[b.id]) continue;
       const targets = voteTargets(s, b.id);
-      // Faithful bots sometimes pile on whoever already has votes, as people do.
+      // Truecloak bots sometimes pile on whoever already has votes, as people do.
       const leaning = Object.values(s.votes).filter((t) => targets.includes(t) && t !== b.id);
       const target =
         s.roles[b.id] !== 'traitor' && leaning.length && rng() < 0.35
@@ -53,7 +53,7 @@ export function botActions(s: GameState, rng: () => number): Action[] {
     for (const b of bots) {
       if (s.roles[b.id] === 'traitor') {
         if (!targets.length) continue;
-        // Follow a human Traitor's lead, otherwise agree with the first Traitor to choose.
+        // Follow a human Turncloak's lead, otherwise agree with the first Turncloak to choose.
         if (s.nightPicks[b.id] && (!humanPick || s.nightPicks[b.id] === humanPick)) continue;
         const lead = humanPick ?? Object.values(s.nightPicks)[0];
         out.push({ type: 'nightPick', playerId: b.id, targetId: lead ?? pickOf(targets, rng) });
@@ -76,15 +76,15 @@ export function botActions(s: GameState, rng: () => number): Action[] {
 }
 
 const ACCUSE = [
-  'I have been watching {t}. Every time the Traitors come up, {t} goes very quiet.',
+  'I have been watching {t}. Every time the Turncloaks come up, {t} goes very quiet.',
   '{t}, you went very quiet during the mission. What were you thinking about?',
   'My gut says {t}. I cannot explain it, but my gut has never lied to me.',
-  '{t} looks far too relaxed for someone in a castle full of Traitors.',
-  'I am Faithful, hand on heart. And I do not trust {t} one bit.',
+  '{t} looks far too relaxed for someone in a castle full of Turncloaks.',
+  'I am a Truecloak, hand on heart. And I do not trust {t} one bit.',
   'Did anyone else notice {t} barely tried in the mission? That was not an accident.',
-  '{t} keeps agreeing with whoever spoke last. That is how a Traitor hides.',
-  'If {t} is Faithful, I will apologise at breakfast. But I am voting {t}.',
-  'Watch {t}\u2019s eyes when the word Traitor is said. Just watch.',
+  '{t} keeps agreeing with whoever spoke last. That is how a Turncloak hides.',
+  'If {t} is a Truecloak, I will apologise at breakfast. But I am voting {t}.',
+  'Watch {t}\u2019s eyes when the word Turncloak is said. Just watch.',
   'Everyone is looking at the loud ones. Look at {t} instead. Too careful. Too clean.',
 ];
 
@@ -95,14 +95,14 @@ const AGREE = [
 ];
 
 const DEFEND = [
-  'I can hear my name being said. I have been Faithful since the very first night, and I will prove it.',
-  'Banish me and you lose a Faithful. Then the Traitors laugh all the way to breakfast.',
-  'Of course you suspect me. That is exactly what the Traitors want you to do.',
+  'I can hear my name being said. I have been a Truecloak since the very first night, and I will prove it.',
+  'Exile me and you lose a Truecloak. Then the Turncloaks laugh all the way to breakfast.',
+  'Of course you suspect me. That is exactly what the Turncloaks want you to do.',
 ];
 
 const fill = (tpl: string, t?: string, sp?: string) => tpl.replaceAll('{t}', t ?? 'someone').replaceAll('{s}', sp ?? 'them');
 
-/** One line of Round Table argument from a bot that has not spoken much yet. */
+/** One line of Council argument from a bot that has not spoken much yet. */
 function speak(s: GameState, ctx: Ctx): TalkLine | null {
   const today = talkToday(s);
   const bots = alive(s).filter((p) => p.isBot && today.filter((l) => l.from === p.id).length < 2);
@@ -137,7 +137,7 @@ function speak(s: GameState, ctx: Ctx): TalkLine | null {
   return { from: bot.id, text: fill(tpl, name(target)), target, day: s.day, at: ctx.now };
 }
 
-/** Lines a bot Traitor whispers to a human Traitor at night. */
+/** Lines a bot Turncloak whispers to a human Turncloak at night. */
 export const BOT_TRAITOR_LINES = [
   'Keep your face still at breakfast.',
   'Not the loud one. Everyone already suspects them.',
@@ -148,7 +148,7 @@ export const BOT_TRAITOR_LINES = [
 
 /**
  * Called on every host tick. Bots act at a human pace, an expired vote closes,
- * and bots speak at the Round Table.
+ * and bots speak at the Council.
  */
 export function botTick(s: GameState, ctx: Ctx): GameState {
   const elapsed = ctx.now - (s.phaseSince || 0);
@@ -158,7 +158,7 @@ export function botTick(s: GameState, ctx: Ctx): GameState {
     return reduce(s, { type: 'closeVoting' }, ctx);
   }
 
-  // At night, give a human Traitor time to choose first.
+  // At night, give a human Turncloak time to choose first.
   const minWait = s.phase === 'night' ? 7000 : 2500;
   if (elapsed >= minWait) {
     for (const a of botActions(next, ctx.rng)) {

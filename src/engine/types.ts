@@ -57,7 +57,7 @@ export interface MissionState {
 }
 
 export interface BanishmentState {
-  /** Order in which the votes are read out at the Round Table. */
+  /** Order in which the votes are read out at the Council. */
   order: string[];
   /** Votes snapshot: voter -> target. */
   votes: Record<string, string>;
@@ -67,7 +67,7 @@ export interface BanishmentState {
   banishedId: string | null;
 }
 
-/** Something said out loud at the Round Table by a bot, shown on every screen. */
+/** Something said out loud at the Council by a bot, shown on every screen. */
 export interface TalkLine {
   from: string;
   text: string;
@@ -88,27 +88,27 @@ export interface GameState {
   phase: Phase;
   day: number;
   players: Player[];
-  /** Secret. Never shown to a player except their own role (and fellow Traitors). */
+  /** Secret. Never shown to a player except their own role (and fellow Turncloaks). */
   roles: Record<string, Role>;
   settings: Settings;
   pot: number;
   usedMissions: string[];
   mission: MissionState | null;
 
-  /** Round Table votes for the current round: voter -> target. */
+  /** Council votes for the current round: voter -> target. */
   votes: Record<string, string>;
   /** When set, only these players can be voted for (a revote after a tie). */
   voteCandidates: string[] | null;
   voteRound: number;
   banishment: BanishmentState | null;
 
-  /** Secret: Traitor -> murder target. */
+  /** Secret: Turncloak -> night target. */
   nightPicks: Record<string, string>;
-  /** Secret: Traitors' private chat for the whole game. */
+  /** Secret: Turncloaks' private chat for the whole game. */
   traitorChat: ChatMessage[];
-  /** Faithful "decoy" task at night, so every phone looks busy: player -> suspect. */
+  /** Truecloak "decoy" task at night, so every phone looks busy: player -> suspect. */
   suspicions: Record<string, string>;
-  /** Who was found murdered at the latest breakfast. */
+  /** Who was found struck down at the latest breakfast. */
   murdered: string | null;
   breakfastRevealed: boolean;
 
@@ -118,7 +118,7 @@ export interface GameState {
   /** The host is letting new players join a game that has already started. */
   doorsOpen?: boolean;
 
-  /** Bot speeches at the Round Table, for the whole game. Public. */
+  /** Bot speeches at the Council, for the whole game. Public. */
   talk: TalkLine[];
   /** Epoch millis when the current phase began. Paces the bots. */
   phaseSince: number;

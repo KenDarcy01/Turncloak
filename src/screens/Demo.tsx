@@ -4,7 +4,7 @@ import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Role } from '../engine/types';
 import { TV } from '../engine/view';
 import { LocalHost } from '../net/backend';
-import { Logo, useView } from '../ui/components';
+import { Logo, roleName, useView } from '../ui/components';
 import { HostScreen } from './HostScreen';
 import { PlayerScreen } from './PlayerScreen';
 
@@ -44,7 +44,7 @@ function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; rol
           <span className="eyebrow">Your role</span>
           <div className="seg">
             {(['random', 'faithful', 'traitor'] as const).map((r) => (
-              <button key={r} className={role === r ? 'on' : ''} onClick={() => setRole(r)}>{r}</button>
+              <button key={r} className={role === r ? 'on' : ''} onClick={() => setRole(r)}>{r === 'random' ? r : roleName(r)}</button>
             ))}
           </div>
         </div>

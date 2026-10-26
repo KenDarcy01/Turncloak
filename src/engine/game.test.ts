@@ -24,7 +24,7 @@ function setup(players = 8, seed = 1) {
 const run = (s: GameState, ctx: Ctx, ...actions: Action[]) => actions.reduce((x, a) => reduce(x, a, ctx), s);
 
 describe('setup', () => {
-  it('assigns the right number of Traitors', () => {
+  it('assigns the right number of Turncloaks', () => {
     expect(aliveTraitors(setup(5).s)).toHaveLength(1);
     expect(aliveTraitors(setup(8).s)).toHaveLength(2);
     expect(aliveTraitors(setup(14).s)).toHaveLength(3);
@@ -85,7 +85,7 @@ describe('a day', () => {
 });
 
 describe('night', () => {
-  it('only lets Traitors murder, and only Faithful can be murdered', () => {
+  it('only lets Turncloaks murder, and only Faithful can be murdered', () => {
     let { s, ctx } = setup(8);
     s = { ...s, phase: 'night' };
     const traitors = aliveTraitors(s).map((p) => p.id);
@@ -101,7 +101,7 @@ describe('night', () => {
 });
 
 describe('secrecy', () => {
-  it('hides roles and Traitor data from the TV and from Faithful', () => {
+  it('hides roles and Turncloak data from the TV and from Faithful', () => {
     let { s, ctx } = setup(8);
     const traitors = aliveTraitors(s).map((p) => p.id);
     const faithful = aliveIds(s).find((id) => !traitors.includes(id))!;
@@ -163,7 +163,7 @@ describe('full games with bots', () => {
 });
 
 describe('views', () => {
-  it('lets a Traitor see murder targets from their own redacted view', () => {
+  it('lets a Turncloak see murder targets from their own redacted view', () => {
     const { s } = setup(8);
     const night = { ...s, phase: 'night' as const };
     const t = aliveTraitors(night)[0].id;
@@ -234,7 +234,7 @@ describe('bots', () => {
     return { s, step: (a: Action) => (s = reduce(s, a, ctx())), tick: (ms: number) => { now += ms; s = reduce(s, { type: 'botTick' }, ctx()); }, get: () => s };
   }
 
-  it('argue at the Round Table, naming real players', () => {
+  it('argue at the Council, naming real players', () => {
     const g = botGame(2, 6, 3);
     g.step({ type: 'advance' });
     g.step({ type: 'missionResult', result: 'success' });
@@ -310,7 +310,7 @@ describe('changing the table', () => {
     expect(s.phase).toBe('banishment');
   });
 
-  it('ends the game if the last Traitor leaves', () => {
+  it('ends the game if the last Turncloak leaves', () => {
     let { s, ctx } = setup(5);
     s = run(s, ctx, { type: 'removePlayer', targetId: aliveTraitors(s)[0].id });
     expect(s.phase).toBe('gameOver');

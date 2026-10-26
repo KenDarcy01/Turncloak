@@ -107,7 +107,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
           <Controls hint={`${n} of at least ${MIN_PLAYERS} players`}>
             <button className="btn" onClick={() => send({ type: 'addBot' })}>Add a bot</button>
             <label className="row muted" style={{ fontSize: '0.9rem' }}>
-              Traitors
+              Turncloaks
               <select
                 className="field compact"
                 value={view.settings.traitorCount}
@@ -142,7 +142,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
         <>
           <div className="tv-stage">
             <div className="eyebrow">The castle doors close</div>
-            <div className="tv-title slow-in">Among you are {traitorCountFor(view)} {traitorCountFor(view) === 1 ? 'Traitor' : 'Traitors'}</div>
+            <div className="tv-title slow-in">Among you are {traitorCountFor(view)} {traitorCountFor(view) === 1 ? 'Turncloak' : 'Turncloaks'}</div>
             <div className="tv-sub">Look at your phone. Press and hold to learn your role. Tell no one.</div>
             <Seats view={view} />
           </div>
@@ -159,20 +159,20 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             {!view.breakfastRevealed ? (
               <>
                 <div className="tv-title fade-in">Who did not make it to breakfast?</div>
-                <div className="tv-sub">The Traitors struck in the night. Look around the table.</div>
+                <div className="tv-sub">The Turncloaks struck in the night. Look around the table.</div>
               </>
             ) : victim ? (
               <>
                 <Avatar player={victim} size="lg" />
-                <div className="tv-title slow-in">{victim.name} was murdered</div>
-                <div className="tv-sub">They were Faithful. They may stay to watch, but must not speak of the game.</div>
+                <div className="tv-title slow-in">{victim.name} was struck down</div>
+                <div className="tv-sub">They were a Truecloak. They may stay to watch, but must not speak of the game.</div>
               </>
             ) : (
               <div className="tv-title slow-in">Everyone survived the night</div>
             )}
             <Seats view={view} />
           </div>
-          <Controls>{view.breakfastRevealed ? next('To the mission') : next('Reveal the murder')}</Controls>
+          <Controls>{view.breakfastRevealed ? next('To the mission') : next('Reveal who fell')}</Controls>
         </>
       );
     }
@@ -190,7 +190,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
             <button className={`btn ${r === 'partial' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'partial' })}>Half</button>
             <button className={`btn ${r === 'fail' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'fail' })}>Failed</button>
-            {r !== 'pending' && next('To the Round Table')}
+            {r !== 'pending' && next('To the Council')}
           </Controls>
         </>
       );
@@ -201,8 +201,8 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
       return (
         <>
           <div className="tv-stage">
-            <div className="eyebrow">Day {view.day} · The Round Table</div>
-            <div className="tv-title fade-in">{endgame ? 'Another banishment' : 'Who do you suspect?'}</div>
+            <div className="eyebrow">Day {view.day} · The Council</div>
+            <div className="tv-title fade-in">{endgame ? 'Another exile' : 'Who do you suspect?'}</div>
             <div className="tv-sub">Speak your suspicions. Defend yourself. When the vote opens, each of you chooses one name on your phone.</div>
             <Countdown endsAt={view.timerEndsAt} />
             <TableTalk view={view} />
@@ -253,9 +253,9 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
           <div className="tv-stage">
             <div className="eyebrow">Night {view.day}</div>
             <div className="tv-title slow-in">Night falls over the castle</div>
-            <div className="tv-sub">Everyone, look at your phone and keep tapping. The Traitors are choosing their victim.</div>
+            <div className="tv-sub">Everyone, look at your phone and keep tapping. The Turncloaks are choosing their victim.</div>
           </div>
-          <Controls hint="Give the Traitors a minute, then">{next('Morning comes')}</Controls>
+          <Controls hint="Give the Turncloaks a minute, then">{next('Morning comes')}</Controls>
         </>
       );
     }
@@ -268,9 +268,9 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
         <>
           <div className="tv-stage">
             <div className="eyebrow">The endgame · {ids.length} remain</div>
-            <div className="tv-title fade-in">Are all the Traitors gone?</div>
+            <div className="tv-title fade-in">Are all the Turncloaks gone?</div>
             <div className="tv-sub">
-              If every one of you votes to end the game, it ends. If a Traitor is still among you, they take the whole pot.
+              If every one of you votes to end the game, it ends. If a Turncloak is still among you, they take the whole pot.
             </div>
             {!ready ? (
               <div className="muted">{voted} of {ids.length} have decided</div>
@@ -280,13 +280,13 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
                   <div key={id} className="vote-line" style={{ animationDelay: `${i * 0.6}s` }}>
                     <span>{name(id)}</span>
                     <span className="arrow">votes to</span>
-                    <span className={view.endVotes[id] === 'end' ? 'gold' : 'red'}>{view.endVotes[id] === 'end' ? 'End the game' : 'Banish again'}</span>
+                    <span className={view.endVotes[id] === 'end' ? 'gold' : 'red'}>{view.endVotes[id] === 'end' ? 'End the game' : 'Exile again'}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <Controls>{ready && next(ids.every((id) => view.endVotes[id] === 'end') ? 'Reveal the truth' : 'Back to the Round Table')}</Controls>
+          <Controls>{ready && next(ids.every((id) => view.endVotes[id] === 'end') ? 'Reveal the truth' : 'Back to the Council')}</Controls>
         </>
       );
     }
@@ -301,7 +301,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
           <div className="tv-stage">
             <div className="eyebrow">The game is over</div>
             <div className={`reveal-role ${traitorsWon ? 'traitor' : 'faithful'} display`}>
-              {traitorsWon ? 'The Traitors win' : 'The Faithful win'}
+              {traitorsWon ? 'The Turncloaks win' : 'The Truecloaks win'}
             </div>
             <div className="tv-sub">
               {winners.length > 0 ? (
@@ -313,7 +313,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
                 'Nobody claims the pot.'
               )}
             </div>
-            <div className="muted">The Traitors were {traitors.map((t) => t.name).join(' and ')}.</div>
+            <div className="muted">The Turncloaks were {traitors.map((t) => t.name).join(' and ')}.</div>
             <Seats view={view} />
           </div>
           <Controls>
@@ -340,7 +340,7 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
           <Avatar player={banished} size="lg" />
           <div className="tv-sub">{banished.name}, please tell the castle who you really are.</div>
           <div className="eyebrow">I am</div>
-          <div className={`reveal-role display ${role}`}>{role === 'traitor' ? 'A Traitor' : 'Faithful'}</div>
+          <div className={`reveal-role display ${role}`}>{role === 'traitor' ? 'A Turncloak' : 'A Truecloak'}</div>
         </div>
         <Controls>
           <button className="btn primary" onClick={() => send({ type: 'advance' })}>Continue</button>
@@ -356,7 +356,7 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
         {b.step === 'verdict' && banished ? (
           <>
             <Avatar player={banished} size="lg" />
-            <div className="tv-title slow-in">{banished.name}, you have been banished</div>
+            <div className="tv-title slow-in">{banished.name}, you have been exiled</div>
             {b.tied.length > 1 && <div className="muted">Still tied after the revote, so fate decided.</div>}
           </>
         ) : b.step === 'tie' ? (
@@ -418,7 +418,7 @@ function PlayersPanel({
   const remove = (id: string, name: string) => {
     const msg = lobby
       ? `Remove ${name} from the table?`
-      : `Remove ${name} from the game? They leave the castle and everyone sees whether they were a Traitor.`;
+      : `Remove ${name} from the game? They leave the castle and everyone sees whether they were a Turncloak.`;
     if (window.confirm(msg)) send({ type: 'removePlayer', targetId: id });
   };
   const doorsShown = !lobby && !over;
@@ -477,7 +477,7 @@ function PlayersPanel({
         )}
         {doorsShown && (
           <p className="muted small" style={{ margin: 0 }}>
-            New players and bots who arrive mid-game are always Faithful.
+            New players and bots who arrive mid-game are always Truecloaks.
           </p>
         )}
         {doorsShown && view.doorsOpen && joinUrl && (
@@ -507,7 +507,7 @@ function JoinQr({ url }: { url: string }) {
   );
 }
 
-/** What the bots have said at this Round Table. */
+/** What the bots have said at this Council. */
 export function TableTalk({ view, max = 4 }: { view: GameState; max?: number }) {
   const lines = view.talk.filter((l) => l.day === view.day && l.at >= view.phaseSince).slice(-max);
   if (!lines.length) return null;
