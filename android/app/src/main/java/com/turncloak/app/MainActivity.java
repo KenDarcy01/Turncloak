@@ -1,4 +1,4 @@
-package com.kendarcy.turncloak;
+package com.turncloak.app;
 
 import com.getcapacitor.BridgeActivity;
 

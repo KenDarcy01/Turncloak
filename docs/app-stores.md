@@ -2,7 +2,7 @@
 
 Turncloak ships to both stores as a [Capacitor](https://capacitorjs.com) app: the same web build, wrapped in a native shell, plus a few phone features (haptics, share sheet, screen kept awake, Android back button). Both apps are built in the cloud by GitHub Actions, so no Mac is needed.
 
-- App id (iOS bundle id and Android package): `com.kendarcy.turncloak`. It cannot change after the first upload.
+- App id (iOS bundle id and Android package): `com.turncloak.app`. It cannot change after the first upload.
 - Version: `version` in `package.json`. Build numbers come from the workflow run number.
 - Privacy policy: https://kendarcy01.github.io/Turncloak/privacy.html
 - Support page: https://kendarcy01.github.io/Turncloak/support.html
@@ -20,7 +20,7 @@ To release, open the repo's **Actions** tab, pick **iOS app** or **Android app**
 
 ## One-time setup: iOS
 
-1. **Register the app id.** In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list), add an App ID with bundle id `com.kendarcy.turncloak`. No extra capabilities are needed.
+1. **Register the app id.** In [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list), add an App ID with bundle id `com.turncloak.app`. No extra capabilities are needed.
 2. **Create the app** in [App Store Connect](https://appstoreconnect.apple.com/apps) → **+** → New App: platform iOS, name Turncloak, bundle id from step 1, SKU `turncloak`.
 3. **Create an API key.** App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → **+**. Give it the **Admin** role, which lets the build create its own signing certificate. Download the `.p8` file (it can only be downloaded once) and note the Key ID and the Issuer ID shown above the list.
 4. **Find your Team ID** under Membership details at [developer.apple.com/account](https://developer.apple.com/account).

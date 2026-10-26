@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 // The app id is permanent once the first build reaches App Store Connect or Google Play.
 const config: CapacitorConfig = {
-  appId: 'com.kendarcy.turncloak',
+  appId: 'com.turncloak.app',
   appName: 'Turncloak',
   webDir: 'dist',
   backgroundColor: '#0b0708',
