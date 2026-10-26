@@ -18,12 +18,12 @@ npm run build:preview   # single-file build of the demo (dist-preview/)
 
 ## How a game runs
 
-1. **Lobby.** Players join with a four letter code. The host can add bots and choose the number of Turncloaks (auto: 1 for up to 6 players, 2 for up to 11, then 3).
+1. **Lobby.** Players join with a four letter code. The host sets the number of bots with − and +, and the number of Turncloaks (auto: 1 for up to 6 players, 2 for up to 11, then 3; never more than leaves the Truecloaks a clear majority).
 2. **Roles.** Each phone shows a press-and-hold role card. Turncloaks also see who the other Turncloaks are.
 3. **Day.** Breakfast reveals who was murdered (from day 2), then a mission card for the room. The host records Success, Half or Failed, which adds gold to the pot.
 4. **Round Table.** Optional debate timer, then a timed vote on phones. Votes are read out one by one on the TV. A tie triggers one revote among the tied players (who sit out); a second tie is settled at random. The banished player's role is revealed.
 5. **Night.** Turncloaks pick a Truecloak to murder and can chat privately. Truecloak phones get a decoy task (a private suspicion diary) so every phone looks busy.
-6. **Endgame.** When `finalCount` players remain (default 4), everyone votes to end the game or banish again. A unanimous "end" finishes the game: if any Turncloak is left, the Turncloaks take the whole pot, otherwise the Truecloaks split it.
+6. **Endgame.** When `finalCount` players remain (default 4, or 3 for tables of six or fewer so there is still a murder first), everyone votes to end the game or banish again. A unanimous "end" finishes the game: if any Turncloak is left, the Turncloaks take the whole pot, otherwise the Truecloaks split it.
 
 The game also ends early if every Turncloak is banished, or if Turncloaks reach parity with the Truecloaks.
 

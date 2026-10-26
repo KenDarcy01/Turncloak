@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { botActions } from './bots';
-import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, playerById, reduce, type Ctx } from './game';
+import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, playerById, reduce, traitorCountFor, type Ctx } from './game';
 import { MISSIONS } from './missions';
 import type { Action, GameState } from './types';
 import { HIDDEN, TV, viewFor } from './view';
@@ -324,5 +324,36 @@ describe('changing the table', () => {
     expect(playerById(s, 'p1')!.away).toBe(true);
     s = run(s, ctx, { type: 'claimSeat', playerId: 'p1' });
     expect(playerById(s, 'p1')!.away).toBeUndefined();
+  });
+});
+
+describe('small tables', () => {
+  it('still have a night before the endgame with five players', () => {
+    let { s, ctx } = setup(5);
+    const faithful = aliveIds(s).filter((id) => s.roles[id] === 'faithful');
+    s = run(s, ctx, { type: 'advance' }, { type: 'missionResult', result: 'success' }, { type: 'advance' }, { type: 'advance' });
+    // Everyone else votes out one Truecloak.
+    for (const id of aliveIds(s)) if (id !== faithful[0]) s = run(s, ctx, { type: 'castVote', playerId: id, targetId: faithful[0] });
+    s = run(s, ctx, { type: 'closeVoting' });
+    while (s.phase === 'banishment') s = run(s, ctx, { type: 'advance' });
+    expect(s.phase).toBe('night');
+    s = run(s, ctx, { type: 'advance' }, { type: 'advance' }, { type: 'advance' });
+    expect(aliveIds(s)).toHaveLength(3);
+    expect(s.phase).toBe('endgameVote');
+  });
+
+  it('never deal more Turncloaks than the table allows', () => {
+    const ctx: Ctx = { rng: seeded(), now: 0 };
+    let s = newGame('X');
+    for (let i = 0; i < 5; i++) s = reduce(s, { type: 'join', playerId: `p${i}`, name: `P${i}` }, ctx);
+    s = reduce(s, { type: 'updateSettings', settings: { traitorCount: 3 } }, ctx);
+    expect(traitorCountFor(s)).toBe(2);
+  });
+
+  it('keep a banished Turncloak out of the night chat', () => {
+    let { s, ctx } = setup(8);
+    const [t] = aliveTraitors(s).map((p) => p.id);
+    s = run(s, ctx, { type: 'removePlayer', targetId: t });
+    expect(run({ ...s, phase: 'night' }, ctx, { type: 'traitorChat', playerId: t, text: 'psst' }).traitorChat).toHaveLength(0);
   });
 });
