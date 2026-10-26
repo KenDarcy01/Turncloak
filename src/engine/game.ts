@@ -65,11 +65,23 @@ export function autoTraitorCount(players: number): number {
   return 3;
 }
 
+/** The most Turncloaks a table of this size can have: the Truecloaks always start with a clear majority. */
+export function maxTraitors(players: number): number {
+  return Math.max(1, Math.floor((players - 1) / 2));
+}
+
 export function traitorCountFor(state: GameState): number {
   const n = state.players.length;
   const wanted = state.settings.traitorCount || autoTraitorCount(n);
-  // Always leave the Truecloaks a clear majority at the start.
-  return Math.max(1, Math.min(wanted, Math.floor((n - 1) / 2)));
+  return Math.min(wanted, maxTraitors(n));
+}
+
+/**
+ * The endgame starts when this many players remain. Small tables wait until
+ * three are left, so a game of five or six still has a murder before the end.
+ */
+export function finalCountFor(s: GameState): number {
+  return s.players.length <= 6 ? Math.min(3, s.settings.finalCount) : s.settings.finalCount;
 }
 
 export const alive = (s: GameState) => s.players.filter((p) => p.alive);
@@ -201,7 +213,7 @@ function enterNight(s: GameState): GameState {
 function afterLoss(s: GameState, then: (s: GameState) => GameState): GameState {
   const winner = checkWinner(s);
   if (winner) return finish(s, winner);
-  if (alive(s).length <= s.settings.finalCount) {
+  if (alive(s).length <= finalCountFor(s)) {
     return log({ ...s, phase: 'endgameVote', endVotes: {}, timerEndsAt: null }, 'The endgame begins.');
   }
   return then(s);
@@ -464,7 +476,8 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       if (!murderTargets(s).includes(a.targetId)) return s;
       return { ...s, nightPicks: { ...s.nightPicks, [a.playerId]: a.targetId } };
     case 'traitorChat': {
-      if (s.roles[a.playerId] !== 'traitor') return s;
+      // Out of the game means out of the plotting too.
+      if (s.roles[a.playerId] !== 'traitor' || !isAlive(s, a.playerId)) return s;
       const text = a.text.trim().slice(0, 280);
       if (!text) return s;
       return { ...s, traitorChat: [...s.traitorChat, { from: a.playerId, text, at: ctx.now }] };

@@ -5,6 +5,8 @@ import {
   autoTraitorCount,
   eligibleVoters,
   endgameReady,
+  finalCountFor,
+  maxTraitors,
   MIN_PLAYERS,
   playerById,
   tally,
@@ -94,6 +96,9 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
   switch (view.phase) {
     case 'lobby': {
       const n = view.players.length;
+      const table = Math.max(n, MIN_PLAYERS);
+      const bots = view.players.filter((p) => p.isBot);
+      const lastBot = bots[bots.length - 1];
       return (
         <>
           <div className="tv-stage">
@@ -105,22 +110,29 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             {n === 0 && <div className="tv-sub muted">Waiting for guests to arrive at the castle...</div>}
           </div>
           <Controls hint={`${n} of at least ${MIN_PLAYERS} players`}>
-            <button className="btn" onClick={() => send({ type: 'addBot' })}>Add a bot</button>
-            <label className="row muted" style={{ fontSize: '0.9rem' }}>
-              Turncloaks
+            <div className="row lobby-setting">
+              <span className="muted">Bots</span>
+              <button className="btn small stepper" aria-label="Remove a bot" disabled={!lastBot} onClick={() => lastBot && send({ type: 'removePlayer', targetId: lastBot.id })}>−</button>
+              <span className="count">{bots.length}</span>
+              <button className="btn small stepper" aria-label="Add a bot" onClick={() => send({ type: 'addBot' })}>+</button>
+            </div>
+            <label className="row lobby-setting">
+              <span className="muted">Turncloaks</span>
               <select
                 className="field compact"
                 value={view.settings.traitorCount}
                 onChange={(e) => send({ type: 'updateSettings', settings: { traitorCount: Number(e.target.value) } })}
               >
-                <option value={0}>Auto ({autoTraitorCount(Math.max(n, MIN_PLAYERS))})</option>
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
+                <option value={0}>Auto: {autoTraitorCount(table)}{n >= MIN_PLAYERS ? ` for ${n} players` : ''}</option>
+                {[1, 2, 3].map((k) => (
+                  <option key={k} value={k} disabled={k > maxTraitors(table)}>
+                    {k}{k > maxTraitors(table) ? ` (needs ${2 * k + 1}+ players)` : ''}
+                  </option>
+                ))}
               </select>
             </label>
-            <label className="row muted" style={{ fontSize: '0.9rem' }}>
-              Missions
+            <label className="row lobby-setting">
+              <span className="muted">Missions</span>
               <select
                 className="field compact"
                 value={view.settings.missionPack}
@@ -132,6 +144,11 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <button className="btn primary" disabled={n < MIN_PLAYERS} onClick={() => send({ type: 'start' })}>
               Begin the game
             </button>
+            <p className="lobby-help muted">
+              Bots fill empty seats. They vote, plot and argue, but sit out the missions.
+              Turncloaks is how many players are secretly dealt the Turncloak role. Auto picks 1 for up to 6 players, 2 for up to 11, then 3.
+              {view.settings.traitorCount > maxTraitors(table) && ` With ${n} players only ${traitorCountFor(view)} can be dealt.`}
+            </p>
           </Controls>
         </>
       );
@@ -197,7 +214,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
     }
 
     case 'roundtable': {
-      const endgame = aliveIds(view).length <= view.settings.finalCount;
+      const endgame = aliveIds(view).length <= finalCountFor(view);
       return (
         <>
           <div className="tv-stage">
