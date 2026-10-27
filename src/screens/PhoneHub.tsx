@@ -19,6 +19,9 @@ export function PhoneHub({ device }: { device: Device }) {
   const [active, setActiveRaw] = useState<string | null>(storage.get(`turncloak:active:${code}`));
   const [covered, setCovered] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The join started from the Join page. Until it lands, don't offer the seat form:
+  // on a slow connection a second tap there used to add the player twice.
+  const [joining, setJoining] = useState(false);
 
   const setActive = (id: string) => {
     setActiveRaw(id);
@@ -44,12 +47,14 @@ export function PhoneHub({ device }: { device: Device }) {
       if (!r || r.seats.length || !r.info || storage.get('turncloak:autojoin') !== code || !name) return;
       storage.set('turncloak:autojoin', '');
       if (r.info.phase !== 'lobby' && !r.info.doorsOpen) return;
+      setJoining(true);
       try {
         setActive(await device.join(name));
         await reload();
       } catch (e) {
         setError((e as Error).message);
       }
+      setJoining(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload]);
@@ -58,6 +63,7 @@ export function PhoneHub({ device }: { device: Device }) {
 
   if (seats === null || info === undefined) return <Note text={error || 'Finding your seat at the table...'} quiet={!error} />;
   if (info === null) return <Note text={`There is no game with the code ${code}. Check the code on the host screen.`} />;
+  if (joining) return <Note text="Taking your seat at the table..." quiet />;
 
   const current = seats.find((s) => s.id === active) ?? seats[0];
   const doorOpen = (v?: GameState) => (v ? v.phase === 'lobby' || !!v.doorsOpen : info.phase === 'lobby' || info.doorsOpen);
