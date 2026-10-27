@@ -35,14 +35,33 @@ export function deviceFor(code: string): Device {
   return ONLINE ? onlineDevice(code) : localDevice(code);
 }
 
+/**
+ * The seat id for a join, kept until the join is known to have worked. On a bad
+ * connection the server can add the player and the reply still get lost; trying
+ * again with the same id is then a no-op instead of a second seat with the same name.
+ */
+function pendingJoin(code: string, name: string) {
+  const key = `turncloak:joining:${code}`;
+  const held = storage.getJSON<{ id: string; name: string }>(key);
+  const id = held && held.name === name ? held.id : randomId();
+  storage.setJSON(key, { id, name });
+  return { id, done: () => storage.set(key, '') };
+}
+
 function onlineDevice(code: string): Device {
   return {
     code,
     seats: () => mySeats(code),
     info: () => tableInfo(code),
     async join(name) {
-      const id = randomId();
-      await joinSeat(code, id, name);
+      const { id, done } = pendingJoin(code, name);
+      try {
+        await joinSeat(code, id, name);
+      } catch (e) {
+        // A retry of a join that already landed: the seat is ours.
+        if (!(await mySeats(code).catch(() => [])).some((s) => s.id === id)) throw e;
+      }
+      done();
       return id;
     },
     claim: (id) => claimSeat(code, id),
@@ -97,12 +116,13 @@ function localDevice(code: string): Device {
       };
     },
     async join(name) {
-      const id = randomId();
+      const { id, done } = pendingJoin(code, name);
       send(id, { type: 'join', playerId: id, name });
       if (!(await waitFor((s) => s.players.some((p) => p.id === id)))) {
         throw new Error('The game has started. Ask the host to let new players in.');
       }
-      storage.setJSON(key, [...held(), id]);
+      done();
+      storage.setJSON(key, [...held().filter((x) => x !== id), id]);
       return id;
     },
     async claim(id) {
