@@ -222,6 +222,52 @@ describe('mission packs', () => {
   });
 });
 
+describe('mission variety', () => {
+  const packOf = (id: string) => MISSIONS.find((m) => m.id === id)!.pack ?? 'castle';
+
+  it('plays every card in the pack before repeating one, across games', () => {
+    const resort = MISSIONS.filter((m) => m.pack === 'resort').map((m) => m.id);
+    const { s: base, ctx } = setup(6);
+    let s: GameState = { ...base, usedMissions: resort.slice(0, -1) };
+    s = reduce(s, { type: 'advance' }, ctx);
+    expect(s.mission!.cardId).toBe(resort[resort.length - 1]);
+    // With every card played, the next pick comes from the older half.
+    s = { ...s, phase: 'roleReveal' };
+    s = reduce(s, { type: 'advance' }, ctx);
+    expect(resort.slice(0, Math.ceil(resort.length / 2))).toContain(s.mission!.cardId);
+  });
+
+  it('draws prompts that have not been used recently', () => {
+    const { s: base, ctx } = setup(6);
+    const pool = MISSIONS.find((m) => m.id === 'riddle-gate')!.prompts!.pool.map((p) => p.text);
+    const fresh = pool.slice(-3);
+    const s = { ...base, usedPrompts: pool.slice(0, -3) };
+    expect(dealMission(s, 'riddle-gate', ctx.rng).items.map((it) => it.text).sort()).toEqual([...fresh].sort());
+  });
+
+  it('remembers missions and prompts into the next game', () => {
+    let { s, ctx } = setup(6);
+    s = run(s, ctx, { type: 'advance' }, { type: 'missionResult', result: 'success' }, { type: 'advance' });
+    const card = s.usedMissions[0];
+    const texts = MISSIONS.find((m) => m.id === card)!.prompts ? s.mission!.items.map((it) => it.text) : [];
+    s = reduce(s, { type: 'restart' }, ctx);
+    expect(s.usedMissions).toEqual([card]);
+    expect(s.usedPrompts).toEqual(texts);
+    expect(packOf(card)).toBe('resort');
+  });
+
+  it('loads history from the host device only in a fresh lobby', () => {
+    const ctx: Ctx = { rng: seeded(), now: 0 };
+    const lobby = newGame('H');
+    const loaded = reduce(lobby, { type: 'loadHistory', missions: ['pool-volley', 7 as unknown as string], prompts: ['Rabat'] }, ctx);
+    expect(loaded.usedMissions).toEqual(['pool-volley']);
+    expect(loaded.usedPrompts).toEqual(['Rabat']);
+    expect(reduce(loaded, { type: 'loadHistory', missions: ['x'], prompts: [] }, ctx)).toBe(loaded);
+    const { s } = setup(5);
+    expect(reduce(s, { type: 'loadHistory', missions: ['x'], prompts: [] }, ctx)).toBe(s);
+  });
+});
+
 describe('bots', () => {
   function botGame(humans: number, bots: number, seed: number) {
     let now = 1_000_000;

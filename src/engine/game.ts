@@ -144,11 +144,29 @@ export function checkWinner(s: GameState): Team | null {
   return null;
 }
 
+/** How much history to keep across games. */
+const MISSION_HISTORY = 100;
+const PROMPT_HISTORY = 600;
+
+/** Order items so the never-used come first (in random order), then the least recently used. */
+function freshestFirst<T>(items: T[], key: (x: T) => string, history: string[], rng: () => number): T[] {
+  const age = (x: T) => history.lastIndexOf(key(x));
+  return shuffle(items, rng).sort((a, b) => age(a) - age(b));
+}
+
 function nextMission(s: GameState, rng: () => number): string {
   const pack = MISSIONS.filter((m) => packOf(m) === (s.settings.missionPack ?? 'castle'));
-  let pool = pack.filter((m) => !s.usedMissions.includes(m.id));
-  if (pool.length === 0) pool = pack;
-  return pick(pool, rng).id;
+  const pool = pack.filter((m) => !s.usedMissions.includes(m.id));
+  if (pool.length) return pick(pool, rng).id;
+  // Every card has been played: choose among the older half.
+  const oldest = freshestFirst(pack, (m) => m.id, s.usedMissions, rng).slice(0, Math.ceil(pack.length / 2));
+  return pick(oldest, rng).id;
+}
+
+function rememberPrompts(s: GameState): GameState {
+  if (!s.mission?.items.length) return s;
+  const texts = s.mission.items.map((it) => it.text);
+  return { ...s, usedPrompts: [...(s.usedPrompts ?? []), ...texts].slice(-PROMPT_HISTORY) };
 }
 
 function log(s: GameState, text: string): GameState {
@@ -170,7 +188,7 @@ export function dealMission(s: GameState, cardId: string, rng: () => number): Mi
   const players = shuffle(humans.length ? humans : aliveIds(s), rng);
   const roleHolders = card.roles ? players.slice(0, card.roles.count ?? 1) : [];
   const set = card.prompts;
-  const drawn = set ? shuffle(set.pool, rng).slice(0, set.count) : [];
+  const drawn = set ? freshestFirst(set.pool, (p) => p.text, s.usedPrompts ?? [], rng).slice(0, set.count) : [];
   // Secret prompts go to the role holders if the card has a role, otherwise to different players in turn.
   const holders = roleHolders.length ? roleHolders : players;
   const items = drawn.map((item, i) => ({
@@ -188,7 +206,7 @@ function enterMission(s: GameState, ctx: Ctx): GameState {
     ...s,
     phase: 'mission',
     mission: dealMission(s, cardId, ctx.rng),
-    usedMissions: [...s.usedMissions, cardId],
+    usedMissions: [...s.usedMissions, cardId].slice(-MISSION_HISTORY),
     timerEndsAt: null,
   };
 }
@@ -311,7 +329,7 @@ function advance(s: GameState, ctx: Ctx): GameState {
       return afterLoss(s, (x) => enterMission(x, ctx));
     case 'mission':
       if (s.mission?.result === 'pending') return s;
-      return enterRoundtable(s);
+      return enterRoundtable(rememberPrompts(s));
     case 'roundtable':
       return { ...s, phase: 'vote', votes: {}, timerEndsAt: ctx.now + s.settings.voteSeconds * 1000 };
     case 'vote':
@@ -490,11 +508,18 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       return { ...s, endVotes: { ...s.endVotes, [a.playerId]: a.choice } };
     case 'botTick':
       return botTick(s, ctx);
+    case 'loadHistory': {
+      if (s.phase !== 'lobby' || s.usedMissions.length || !Array.isArray(a.missions) || !Array.isArray(a.prompts)) return s;
+      const strings = (xs: unknown[], n: number) => xs.filter((x): x is string => typeof x === 'string' && x.length < 300).slice(-n);
+      return { ...s, usedMissions: strings(a.missions, MISSION_HISTORY), usedPrompts: strings(a.prompts, PROMPT_HISTORY) };
+    }
     case 'restart': {
       const fresh = newGame(s.code);
       return {
         ...fresh,
         settings: s.settings,
+        usedMissions: s.usedMissions,
+        usedPrompts: s.usedPrompts,
         players: s.players.filter((p) => p.out?.by !== 'left').map((p) => ({ ...p, alive: true, out: undefined })),
       };
     }
