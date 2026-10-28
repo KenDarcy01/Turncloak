@@ -16,6 +16,7 @@ import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
+import { storage } from '../net/storage';
 import { shareInvite, useKeepAwake } from '../native';
 import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
 import { MissionBoard } from './MissionBoard';
@@ -34,6 +35,7 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
   const view = useView(conn);
   const [panel, setPanel] = useState(false);
   useBotHeartbeat(online ? conn : null, view);
+  useMissionHistory(compact ? null : conn, view);
   useKeepAwake();
   if (!view) return <div className="castle tv"><div className="tv-stage muted">Lighting the candles...</div></div>;
   const send = (a: Action) => conn.send(a);
@@ -61,6 +63,28 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
       {panel && <PlayersPanel view={view} send={send} joinUrl={joinUrl} online={online} onClose={() => setPanel(false)} />}
     </div>
   );
+}
+
+const HISTORY_KEY = 'turncloak:history';
+
+/**
+ * Remember on this device which missions and prompts were played, and hand
+ * them to each new game it hosts, so the same cards don't come round every game.
+ */
+function useMissionHistory(conn: GameConnection | null, view: GameState | null) {
+  const loaded = useRef(false);
+  const fresh = !!view && view.phase === 'lobby' && view.usedMissions.length === 0;
+  useEffect(() => {
+    if (!conn || !fresh || loaded.current) return;
+    loaded.current = true;
+    const h = storage.getJSON<{ missions?: string[]; prompts?: string[] }>(HISTORY_KEY);
+    if (h?.missions?.length) conn.send({ type: 'loadHistory', missions: h.missions, prompts: h.prompts ?? [] });
+  }, [conn, fresh]);
+  const missions = view?.usedMissions;
+  const prompts = view?.usedPrompts;
+  useEffect(() => {
+    if (conn && missions?.length) storage.setJSON(HISTORY_KEY, { missions, prompts: prompts ?? [] });
+  }, [conn, missions, prompts]);
 }
 
 const BOT_PHASES = ['roundtable', 'vote', 'night', 'endgameVote'];

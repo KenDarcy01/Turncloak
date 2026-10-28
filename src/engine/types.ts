@@ -92,7 +92,10 @@ export interface GameState {
   roles: Record<string, Role>;
   settings: Settings;
   pot: number;
+  /** Mission cards played, oldest first. Carried into the next game so cards don't repeat soon. */
   usedMissions: string[];
+  /** Prompt texts (tunes, riddles...) from finished missions, oldest first. Carried over like usedMissions. */
+  usedPrompts?: string[];
   mission: MissionState | null;
 
   /** Round Table votes for the current round: voter -> target. */
@@ -160,6 +163,8 @@ export type Action =
   | { type: 'suspect'; playerId: string; targetId: string }
   | { type: 'endVote'; playerId: string; choice: 'end' | 'banish' }
   | { type: 'restart' }
+  /** Host screen, in the lobby: what this device played in earlier games, so a new game avoids repeats. */
+  | { type: 'loadHistory'; missions: string[]; prompts: string[] }
   /** Sent by the host screen every second or two: bots act, and an expired vote closes. */
   | { type: 'botTick' };
 
@@ -180,5 +185,6 @@ export const HOST_ACTIONS: Action['type'][] = [
   'closeVoting',
   'revealNext',
   'restart',
+  'loadHistory',
   'botTick',
 ];
