@@ -52,6 +52,8 @@ export function needsAction(view: GameState | undefined, id: string): boolean {
   if (view.phase === 'vote') return eligibleVoters(view).includes(id) && !view.votes[id];
   if (view.phase === 'night') return view.roles[id] === 'traitor' ? !view.nightPicks[id] : !view.suspicions[id];
   if (view.phase === 'endgameVote') return !view.endVotes[id];
+  const play = view.phase === 'mission' ? view.mission?.play : undefined;
+  if (play) return !play.counted && play.players.includes(id) && !play.picks[id];
   return false;
 }
 
@@ -128,7 +130,9 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       return <Wait eyebrow={`Day ${view.day} · Breakfast`} title="Watch the big screen" lead="Who survived the night?" />;
 
     case 'mission':
-      return <MissionPhone view={view} me={me} traitor={traitor} />;
+      return view.mission?.play
+        ? <PhoneGame key={me.id} view={view} me={me} traitor={traitor} send={send} />
+        : <MissionPhone view={view} me={me} traitor={traitor} />;
 
     case 'roundtable':
       return (
@@ -334,6 +338,96 @@ function MissionPhone({ view, me, traitor }: { view: GameState; me: Player; trai
           ? 'A failed mission means less gold for the Truecloaks. Sabotage it if you dare, but do not get caught.'
           : 'Every success adds gold to the pot. Watch for anyone who seems to be holding the team back.'}
       </p>
+    </div>
+  );
+}
+
+/** A mission played on the phone: guard or sabotage, or answer the questions. */
+function PhoneGame({ view, me, traitor, send }: { view: GameState; me: Player; traitor: boolean; send: (a: Action) => void }) {
+  const m = view.mission!;
+  const play = m.play!;
+  const card = missionById(m.cardId);
+  const sabotage = card.phone?.game === 'sabotage';
+  const [choices, setChoices] = useState<(number | undefined)[]>([]);
+  const sent = play.picks[me.id];
+  const playing = play.players.includes(me.id) && me.alive;
+  const submit = (picks: number[]) => { buzz('tap'); send({ type: 'missionPlay', playerId: me.id, picks }); };
+
+  const head = (
+    <>
+      <div className="eyebrow">Day {view.day} · Mission</div>
+      <h2>{card.title}</h2>
+    </>
+  );
+  if (play.counted) {
+    return (
+      <div className="stack">
+        {head}
+        <p className="lead">{sabotage ? 'The votes are counted. Watch the big screen.' : 'Answers are in. Watch the big screen.'}</p>
+      </div>
+    );
+  }
+  if (!playing) {
+    return (
+      <div className="stack">
+        {head}
+        <p className="lead">You are not on the crew this time. Watch their faces.</p>
+      </div>
+    );
+  }
+  if (sent) {
+    return (
+      <div className="stack">
+        {head}
+        <p className="lead">{sabotage ? 'Your choice is locked. Put your phone face down.' : 'Your answers are locked.'}</p>
+        <p className="muted">Waiting for the others.</p>
+      </div>
+    );
+  }
+
+  if (sabotage) {
+    return (
+      <div className="stack">
+        {head}
+        <p className="lead">Shield your screen and choose.</p>
+        <button className="btn block" onClick={() => submit([0])}>Guard</button>
+        <button className="btn primary block" disabled={!traitor} onClick={() => submit([1])}>Sabotage</button>
+        <p className="muted">
+          {traitor
+            ? 'One sabotage halves the gold; two lose it all. The TV shows how many, never who.'
+            : 'Only a Turncloak can sabotage. Guard, and remember who was on the crew.'}
+        </p>
+      </div>
+    );
+  }
+
+  const ready = m.items.every((_, i) => choices[i] !== undefined);
+  return (
+    <div className="stack">
+      {head}
+      <p className="muted">
+        {card.phone?.game === 'consensus' ? 'Pick what you think most of the table will pick.' : 'Answer every question. No conferring.'}
+      </p>
+      {m.items.map((it, i) => (
+        <div className="stack" key={i}>
+          <div className="eyebrow">Question {i + 1}</div>
+          <div className="prompt-text">{it.text}</div>
+          <div className="choice-list">
+            {(it.choices ?? []).map((c, j) => (
+              <button
+                key={j}
+                className={`choice ${choices[i] === j ? 'selected' : ''}`}
+                onClick={() => setChoices((x) => Object.assign([...x], { [i]: j }))}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button className="btn primary block" disabled={!ready} onClick={() => submit(choices as number[])}>
+        Lock in my answers
+      </button>
     </div>
   );
 }

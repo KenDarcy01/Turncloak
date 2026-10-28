@@ -403,3 +403,102 @@ describe('small tables', () => {
     expect(run({ ...s, phase: 'night' }, ctx, { type: 'traitorChat', playerId: t, text: 'psst' }).traitorChat).toHaveLength(0);
   });
 });
+
+describe('phone games', () => {
+  const at = (s: GameState, cardId: string, seed = 3) => ({ ...s, phase: 'mission' as const, mission: dealMission(s, cardId, seeded(seed)) });
+
+  it('deals a crew of half the table, bots included, and counts sabotages without naming anyone', () => {
+    const { s, ctx } = setup(8);
+    const g = at(s, 'phone-treasury-run');
+    const crew = g.mission!.play!.players;
+    expect(crew).toHaveLength(4);
+    expect(g.mission!.roleHolders).toEqual(crew);
+    const traitor = crew.find((id) => g.roles[id] === 'traitor');
+    const faithful = crew.filter((id) => g.roles[id] !== 'traitor');
+    // A Truecloak's sabotage counts as a guard.
+    let r = run(g, ctx, ...crew.map((id) => ({ type: 'missionPlay' as const, playerId: id, picks: [1] })));
+    expect(r.mission!.play!.counted).toBe(true);
+    expect(r.mission!.play!.sabotages).toBe(crew.filter((id) => g.roles[id] === 'traitor').length);
+    for (const id of faithful) expect(r.mission!.play!.picks[id]).toEqual([0]);
+    const v = viewFor(r, faithful[0]);
+    expect(v.mission!.play!.sabotages).toBe(r.mission!.play!.sabotages);
+    if (traitor) expect(v.mission!.play!.picks[traitor]).toEqual([]);
+    // Nobody sabotages: full reward, added to the pot once.
+    r = run(g, ctx, ...crew.map((id) => ({ type: 'missionPlay' as const, playerId: id, picks: [0] })));
+    expect(r.mission!.result).toBe('success');
+    expect(r.pot).toBe(MISSIONS.find((m) => m.id === 'phone-treasury-run')!.reward);
+  });
+
+  it('ignores players off the crew, second answers and bad picks', () => {
+    const { s, ctx } = setup(8);
+    const g = at(s, 'phone-treasury-run');
+    const off = aliveIds(g).find((id) => !g.mission!.play!.players.includes(id))!;
+    const on = g.mission!.play!.players[0];
+    expect(reduce(g, { type: 'missionPlay', playerId: off, picks: [0] }, ctx)).toBe(g);
+    expect(reduce(g, { type: 'missionPlay', playerId: on, picks: [2] }, ctx)).toBe(g);
+    const once = reduce(g, { type: 'missionPlay', playerId: on, picks: [0] }, ctx);
+    expect(reduce(once, { type: 'missionPlay', playerId: on, picks: [1] }, ctx)).toBe(once);
+  });
+
+  it('scores a quiz by questions two thirds got right, and shows answers only after counting', () => {
+    const { s, ctx } = setup(6);
+    const g = at(s, 'phone-scholars-exam');
+    const m = g.mission!;
+    expect(m.play!.players).toHaveLength(6);
+    expect(viewFor(g, 'p0').mission!.items[0].answer).toBeUndefined();
+    const right = m.items.map((it) => it.choices!.indexOf(it.answer!));
+    const wrong = right.map((r) => (r + 1) % 4);
+    // Four of six right on every question: two thirds, so all won.
+    const ids = aliveIds(g);
+    let r = run(g, ctx, ...ids.slice(0, 4).map((id) => ({ type: 'missionPlay' as const, playerId: id, picks: right })));
+    expect(viewFor(r, 'p5').mission!.play!.picks[ids[0]]).toEqual([]);
+    r = run(r, ctx, ...ids.slice(4).map((id) => ({ type: 'missionPlay' as const, playerId: id, picks: wrong })));
+    expect(r.mission!.result).toBe('success');
+    expect(viewFor(r, 'p5').mission!.play!.picks[ids[0]]).toEqual(right);
+    // Three of six is not enough.
+    const half = run(g, ctx, ...ids.map((id, i) => ({ type: 'missionPlay' as const, playerId: id, picks: i < 3 ? right : wrong })));
+    expect(half.mission!.result).toBe('fail');
+  });
+
+  it('scores consensus by agreement, and the host can count early', () => {
+    const { s, ctx } = setup(6);
+    const g = at(s, 'phone-of-one-mind');
+    const ids = aliveIds(g);
+    expect(viewFor(g, TV).mission!.items[0].answer).toBeUndefined();
+    let r = run(g, ctx, ...ids.slice(0, 4).map((id) => ({ type: 'missionPlay' as const, playerId: id, picks: [2, 2, 2, 2, 2] })));
+    expect(r.mission!.play!.counted).toBe(false);
+    r = reduce(r, { type: 'missionCount' }, ctx);
+    expect(r.mission!.result).toBe('success');
+    expect(reduce(r, { type: 'advance' }, ctx).phase).toBe('roundtable');
+  });
+
+  it('every phone card deals choices for every question', () => {
+    const { s, ctx } = setup(5);
+    for (const card of MISSIONS.filter((c) => c.phone)) {
+      const m = dealMission(s, card.id, ctx.rng);
+      expect(m.play).toBeTruthy();
+      for (const it of m.items) {
+        expect(it.choices).toHaveLength(4);
+        if (card.phone!.game === 'quiz') expect(it.choices).toContain(it.answer);
+      }
+      for (const item of card.prompts?.pool ?? []) expect(new Set(item.choices).size).toBe(4);
+    }
+  });
+
+  it('are played by bots through host ticks', () => {
+    for (const cardId of ['phone-treasury-run', 'phone-chefs-exam', 'phone-poolside-telepathy']) {
+      let now = 1_000_000;
+      const rng = seeded(7);
+      let s = newGame('BOTS');
+      s = reduce(s, { type: 'join', playerId: 'h0', name: 'H0' }, { rng, now });
+      for (let i = 0; i < 6; i++) s = reduce(s, { type: 'addBot' }, { rng, now });
+      s = reduce(s, { type: 'start' }, { rng, now });
+      s = { ...s, phase: 'mission', phaseSince: now, mission: dealMission(s, cardId, rng) };
+      for (let i = 0; i < 40; i++) { now += 3000; s = reduce(s, { type: 'botTick' }, { rng, now }); }
+      const play = s.mission!.play!;
+      const bots = play.players.filter((id) => playerById(s, id)?.isBot);
+      expect(bots.length).toBeGreaterThan(0);
+      for (const id of bots) expect(play.picks[id]).toBeTruthy();
+    }
+  });
+});

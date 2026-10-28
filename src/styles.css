@@ -375,3 +375,9 @@ button.link { appearance: none; background: none; border: 0; padding: 0; cursor:
 .chip.on { border-color: var(--gold); color: var(--gold-bright); }
 .chip.add { border-style: dashed; }
 .chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blood-bright); margin-left: 6px; vertical-align: middle; box-shadow: 0 0 8px rgba(198, 42, 51, 0.8); }
+
+.phone-status { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.phone-status li { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.phone-status li.done { border-color: var(--gold); color: var(--gold-bright); }
+.sabotage-count { font-size: clamp(4rem, 12vw, 8rem); line-height: 1; margin: 8px 0; }
+.pick-line { margin-top: 4px; }

@@ -1,6 +1,6 @@
 import { endgameReady } from './game';
 import { missionById } from './missions';
-import type { GameState, Role } from './types';
+import type { GameState, PhonePlay, Role } from './types';
 
 export const TV = 'tv';
 export const HIDDEN = '?';
@@ -78,11 +78,25 @@ function hideUnrevealedMurder(s: GameState, viewer: string): GameState {
 function missionFor(s: GameState, viewer: string): GameState['mission'] {
   const m = s.mission;
   if (!m) return m;
-  const kind = missionById(m.cardId).prompts?.kind;
+  const card = missionById(m.cardId);
+  const kind = card.prompts?.kind;
   const items = m.items.map((it) => {
+    // A consensus question has no right answer to show; the stored one is only a hint for the bots.
+    if (card.phone?.game === 'consensus') return { ...it, answer: undefined };
     if (it.revealed) return it;
     const hideText = (kind === 'secret' && it.assignee !== viewer) || (kind === 'memory' && viewer !== TV);
     return { ...it, text: hideText ? '' : it.text, answer: undefined };
   });
-  return { ...m, items };
+  return { ...m, items, play: m.play && playFor(s, m.play, card.phone?.game === 'sabotage', viewer) };
+}
+
+/**
+ * Phone game answers stay secret until the game is counted. Quiz and consensus
+ * answers are public after that; who sabotaged is never shown until the game is over.
+ */
+function playFor(s: GameState, play: PhonePlay, sabotage: boolean, viewer: string): PhonePlay {
+  const open = s.phase === 'gameOver' || (play.counted && !sabotage);
+  const picks: PhonePlay['picks'] = {};
+  for (const [id, p] of Object.entries(play.picks)) picks[id] = open || id === viewer ? p : [];
+  return { ...play, picks };
 }
