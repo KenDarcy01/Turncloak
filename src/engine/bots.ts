@@ -1,4 +1,5 @@
 import { alive, aliveIds, eligibleVoters, murderTargets, playerById, reduce, voteTargets, type Ctx } from './game';
+import { missionById } from './missions';
 import type { Action, GameState, TalkLine } from './types';
 
 /**
@@ -61,6 +62,31 @@ export function botActions(s: GameState, rng: () => number): Action[] {
         const others = aliveIds(s).filter((id) => id !== b.id);
         if (others.length) out.push({ type: 'suspect', playerId: b.id, targetId: pickOf(others, rng) });
       }
+    }
+  }
+
+  const play = s.phase === 'mission' ? s.mission?.play : undefined;
+  if (play && !play.counted) {
+    const m = s.mission!;
+    const game = missionById(m.cardId).phone?.game;
+    for (const b of bots) {
+      if (!play.players.includes(b.id) || play.picks[b.id]) continue;
+      const traitor = s.roles[b.id] === 'traitor';
+      let picks: number[];
+      if (game === 'sabotage') {
+        // A bot Turncloak sabotages about half the time, less if a fellow Turncloak is on the crew.
+        const partner = play.players.some((id) => id !== b.id && s.roles[id] === 'traitor');
+        picks = [traitor && rng() < (partner ? 0.3 : 0.5) ? 1 : 0];
+      } else {
+        // Bots know most answers (or follow the crowd); Turncloak bots slip a little more often.
+        const sure = traitor ? 0.55 : 0.75;
+        picks = m.items.map((it) => {
+          const choices = it.choices ?? [];
+          const best = choices.indexOf(it.answer ?? '');
+          return best >= 0 && rng() < sure ? best : Math.floor(rng() * choices.length);
+        });
+      }
+      out.push({ type: 'missionPlay', playerId: b.id, picks });
     }
   }
 

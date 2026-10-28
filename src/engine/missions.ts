@@ -1,4 +1,5 @@
 import { DINNER_MISSIONS } from './missions-dinner';
+import { PHONE_MISSIONS } from './missions-phone';
 import { RESORT_MISSIONS } from './missions-resort';
 
 /**
@@ -13,6 +14,8 @@ export interface PromptItem {
   text: string;
   /** Riddle answers and the like, hidden on the TV until the host reveals them. */
   answer?: string;
+  /** Phone games: the options, with the right answer (or, for a consensus question, the obvious one) first. */
+  choices?: string[];
 }
 
 export type PromptKind =
@@ -23,7 +26,9 @@ export type PromptKind =
   /** Question on the TV, answer hidden until the host reveals it. */
   | 'riddle'
   /** Shown on the TV for a short time, then hidden while the group remembers it. */
-  | 'memory';
+  | 'memory'
+  /** Questions with options, answered on every phone and counted by the game. */
+  | 'phone';
 
 export interface PromptSet {
   kind: PromptKind;
@@ -60,6 +65,13 @@ export interface MissionCard {
   /** Step by step instructions, read aloud by the host. */
   steps: string[];
   prompts?: PromptSet;
+  /**
+   * Played on the phones and counted automatically. Bots play these too.
+   * sabotage: a crew (half the table, or everyone) secretly guards or sabotages; only Turncloaks can sabotage.
+   * quiz: everyone answers the questions; a question is won when two thirds get it right.
+   * consensus: everyone tries to give the same answer as the rest; won when two thirds match.
+   */
+  phone?: { game: 'sabotage' | 'quiz' | 'consensus'; crew?: 'half' | 'all' };
   scoring: { success: string; partial: string; fail: string };
   reward: number;
 }
@@ -646,7 +658,7 @@ const CASTLE_MISSIONS: MissionCard[] = [
   },
 ];
 
-export const MISSIONS: MissionCard[] = [...CASTLE_MISSIONS, ...RESORT_MISSIONS, ...DINNER_MISSIONS];
+export const MISSIONS: MissionCard[] = [...CASTLE_MISSIONS, ...RESORT_MISSIONS, ...DINNER_MISSIONS, ...PHONE_MISSIONS];
 
 export const packOf = (m: MissionCard): MissionPack => m.pack ?? 'castle';
 

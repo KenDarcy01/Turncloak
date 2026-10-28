@@ -183,6 +183,7 @@ function finish(s: GameState, winner: Team): GameState {
 /** Draw this play's prompts and choose who does what. */
 export function dealMission(s: GameState, cardId: string, rng: () => number): MissionState {
   const card = missionById(cardId);
+  if (card.phone) return dealPhoneMission(s, cardId, rng);
   // Bots cannot run, swim or hum, so mission jobs go to real players when there are any.
   const humans = alive(s).filter((p) => !p.isBot).map((p) => p.id);
   const players = shuffle(humans.length ? humans : aliveIds(s), rng);
@@ -198,6 +199,63 @@ export function dealMission(s: GameState, cardId: string, rng: () => number): Mi
     revealed: set?.kind === 'public',
   }));
   return { cardId, result: 'pending', earned: 0, roleHolders, items, showUntil: null };
+}
+
+/** Phone games are played by everyone still in, bots included. */
+function dealPhoneMission(s: GameState, cardId: string, rng: () => number): MissionState {
+  const card = missionById(cardId);
+  const everyone = shuffle(aliveIds(s), rng);
+  const crew = card.phone!.crew === 'half' ? everyone.slice(0, Math.max(2, Math.ceil(everyone.length / 2))) : everyone;
+  const set = card.prompts;
+  const drawn = set ? freshestFirst(set.pool, (p) => p.text, s.usedPrompts ?? [], rng).slice(0, set.count) : [];
+  const items = drawn.map((item) => ({
+    text: item.text,
+    answer: item.answer,
+    choices: shuffle(item.choices ?? [], rng),
+    revealed: false,
+  }));
+  return {
+    cardId,
+    result: 'pending',
+    earned: 0,
+    roleHolders: card.roles ? crew : [],
+    items,
+    showUntil: null,
+    play: { players: crew, picks: {}, counted: false },
+  };
+}
+
+/** A phone game question is won when two thirds of those who answered agree (on the right answer, for a quiz). */
+export function questionWon(m: MissionState, game: 'quiz' | 'consensus', index: number): boolean {
+  const it = m.items[index];
+  const picks = Object.values(m.play?.picks ?? {}).map((p) => p[index]).filter((x) => x !== undefined);
+  if (!picks.length || !it.choices) return false;
+  const counts = it.choices.map((_, c) => picks.filter((x) => x === c).length);
+  const hits = game === 'quiz' ? counts[it.choices.indexOf(it.answer ?? '')] ?? 0 : Math.max(...counts);
+  return hits * 3 >= picks.length * 2;
+}
+
+/** Count a phone game: work out the result and pay the pot. */
+function countPhone(s: GameState): GameState {
+  const m = s.mission!;
+  const card = missionById(m.cardId);
+  const play = m.play!;
+  let result: MissionState['result'];
+  let sabotages: number | undefined;
+  if (card.phone!.game === 'sabotage') {
+    sabotages = play.players.filter((id) => play.picks[id]?.[0] === 1).length;
+    result = sabotages === 0 ? 'success' : sabotages === 1 ? 'partial' : 'fail';
+  } else {
+    const game = card.phone!.game;
+    const won = m.items.filter((_, i) => questionWon(m, game, i)).length;
+    result = won === m.items.length ? 'success' : won >= Math.ceil(m.items.length / 2) ? 'partial' : 'fail';
+  }
+  const earned = result === 'success' ? card.reward : result === 'partial' ? Math.round(card.reward / 2) : 0;
+  return {
+    ...s,
+    pot: s.pot - m.earned + earned,
+    mission: { ...m, result, earned, play: { ...play, counted: true, sabotages } },
+  };
 }
 
 function enterMission(s: GameState, ctx: Ctx): GameState {
@@ -468,6 +526,26 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       const items = s.mission.items.map((it, i) => (a.index === -1 || a.index === i ? { ...it, revealed: true } : it));
       return { ...s, mission: { ...s.mission, items } };
     }
+    case 'missionPlay': {
+      const m = s.mission;
+      const play = m?.play;
+      if (s.phase !== 'mission' || !m || !play || play.counted) return s;
+      if (!play.players.includes(a.playerId) || !isAlive(s, a.playerId) || play.picks[a.playerId]) return s;
+      const card = missionById(m.cardId);
+      const sabotage = card.phone?.game === 'sabotage';
+      const n = sabotage ? 1 : m.items.length;
+      if (!Array.isArray(a.picks) || a.picks.length !== n) return s;
+      const ok = a.picks.every((p, i) => Number.isInteger(p) && p >= 0 && p < (sabotage ? 2 : m.items[i].choices?.length ?? 0));
+      if (!ok) return s;
+      // Only a Turncloak's sabotage counts; a Truecloak always guards.
+      const picks = sabotage && s.roles[a.playerId] !== 'traitor' ? [0] : a.picks;
+      const next = { ...s, mission: { ...m, play: { ...play, picks: { ...play.picks, [a.playerId]: picks } } } };
+      const done = play.players.filter((id) => isAlive(s, id)).every((id) => next.mission.play.picks[id]);
+      return done ? countPhone(next) : next;
+    }
+    case 'missionCount':
+      if (s.phase !== 'mission' || !s.mission?.play || s.mission.play.counted) return s;
+      return countPhone(s);
     case 'missionShow': {
       if (s.phase !== 'mission' || !s.mission) return s;
       const secs = missionById(s.mission.cardId).prompts?.showSeconds ?? 20;

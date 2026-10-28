@@ -1,4 +1,4 @@
-import { playerById } from '../engine/game';
+import { playerById, questionWon } from '../engine/game';
 import { missionById, packOf } from '../engine/missions';
 import { TABLE_MANNERS } from '../engine/missions-dinner';
 import { POOL_SAFETY } from '../engine/missions-resort';
@@ -48,7 +48,8 @@ export function MissionBoard({ view, send }: { view: GameState; send: (a: Action
         </div>
 
         <div className="stack">
-          {set && (
+          {m.play && <PhonePanel view={view} send={send} />}
+          {set && !m.play && (
             <div className="panel">
               <div className="row">
                 <div className="eyebrow">{set.label}</div>
@@ -110,6 +111,85 @@ export function MissionBoard({ view, send }: { view: GameState; send: (a: Action
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Phone games on the TV: who has answered, then the count and who picked what. */
+function PhonePanel({ view, send }: { view: GameState; send: (a: Action) => void }) {
+  const m = view.mission!;
+  const play = m.play!;
+  const game = missionById(m.cardId).phone!.game;
+  const name = (id: string) => playerById(view, id)?.name ?? 'Someone';
+  const waiting = play.players.filter((id) => !play.picks[id] && playerById(view, id)?.alive);
+
+  if (!play.counted) {
+    return (
+      <div className="panel">
+        <div className="row">
+          <div className="eyebrow">{game === 'sabotage' ? 'Choosing in secret' : 'Answering on phones'}</div>
+          <div className="spacer" />
+          <button className="btn small ghost" onClick={() => send({ type: 'missionCount' })}>Count now</button>
+        </div>
+        <ul className="phone-status">
+          {play.players.map((id) => (
+            <li key={id} className={play.picks[id] ? 'done' : ''}>{name(id)} {play.picks[id] ? '✓' : '…'}</li>
+          ))}
+        </ul>
+        <p className="muted">
+          {waiting.length ? `Waiting for ${waiting.map(name).join(', ')}.` : 'Everyone is in.'}
+          {game !== 'sabotage' && ` ${m.items.length} questions on every phone.`}
+        </p>
+      </div>
+    );
+  }
+
+  if (game === 'sabotage') {
+    const n = play.sabotages ?? 0;
+    return (
+      <div className="panel center">
+        <div className="eyebrow">The count</div>
+        <div className={`display sabotage-count ${n ? 'red' : 'gold'}`}>{n}</div>
+        <p className="lead">{n === 0 ? 'No sabotage. Everyone guarded the gold.' : n === 1 ? 'One sabotage. Somebody who played is a Turncloak.' : `${n} sabotages. At least ${n} of those who played are Turncloaks.`}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel">
+      <div className="row">
+        <div className="eyebrow">{game === 'quiz' ? 'Answers' : 'What everyone picked'}</div>
+        <div className="spacer" />
+        {m.items.some((it) => !it.revealed) && (
+          <button className="btn small ghost" onClick={() => send({ type: 'missionReveal', index: -1 })}>Reveal all</button>
+        )}
+      </div>
+      <ol className="prompts">
+        {m.items.map((it, i) => (
+          <li key={i}>
+            <div className="prompt-text">{it.text}</div>
+            {it.revealed ? (
+              <>
+                {(it.choices ?? []).map((c, j) => {
+                  const who = Object.entries(play.picks).filter(([, p]) => p[i] === j).map(([id]) => name(id));
+                  if (!who.length && c !== it.answer) return null;
+                  return (
+                    <div key={j} className="pick-line">
+                      <strong className={game === 'quiz' && c === it.answer ? 'gold' : ''}>{c}{game === 'quiz' && c === it.answer ? ' ✓' : ''}</strong>{' '}
+                      <span className="muted">{who.length ? who.join(', ') : 'nobody'}</span>
+                    </div>
+                  );
+                })}
+                <div className={questionWon(m, game, i) ? 'gold' : 'red'}>{questionWon(m, game, i) ? 'Won' : 'Lost'}</div>
+              </>
+            ) : (
+              <button className="btn small" onClick={() => send({ type: 'missionReveal', index: i })}>
+                {game === 'quiz' ? 'Reveal answer' : 'Reveal picks'}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

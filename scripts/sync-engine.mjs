@@ -17,11 +17,12 @@ for (const f of ['bots.ts', 'game.ts', 'types.ts', 'view.ts']) {
 const vite = await createServer({ server: { middlewareMode: true }, logLevel: 'silent' });
 const { MISSIONS } = await vite.ssrLoadModule('/src/engine/missions.ts');
 await vite.close();
-const data = MISSIONS.map(({ id, pack, roles, prompts, reward }) => ({
+const data = MISSIONS.map(({ id, pack, roles, prompts, phone, reward }) => ({
   id,
   pack: pack ?? 'castle',
   roles: roles ? { count: roles.count ?? 1 } : undefined,
   prompts,
+  phone,
   reward,
 }));
 writeFileSync(

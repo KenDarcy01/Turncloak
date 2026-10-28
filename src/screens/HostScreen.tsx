@@ -169,7 +169,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
               Begin the game
             </button>
             <p className="lobby-help muted">
-              Bots fill empty seats. They vote, plot and argue, but sit out the missions.
+              Bots fill empty seats. They vote, plot and argue, and play the phone games, but sit out the other missions.
               Turncloaks is how many players are secretly dealt the Turncloak role. Auto picks 1 for up to 6 players, 2 for up to 11, then 3.
               {view.settings.traitorCount > maxTraitors(table) && ` With ${n} players only ${traitorCountFor(view)} can be dealt.`}
             </p>
@@ -227,10 +227,12 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <div className="eyebrow">Day {view.day} · Mission</div>
             <MissionBoard view={view} send={send} />
           </div>
-          <Controls hint="Record the result">
+          <Controls hint={m.play && !m.play.counted ? 'The phones are playing. The result counts itself.' : 'Record the result'}>
+            {m.play && !m.play.counted ? null : <>
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
             <button className={`btn ${r === 'partial' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'partial' })}>Half</button>
             <button className={`btn ${r === 'fail' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'fail' })}>Failed</button>
+            </>}
             {r !== 'pending' && next('To the Round Table')}
           </Controls>
         </>

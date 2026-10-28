@@ -42,6 +42,23 @@ export interface MissionItemState {
   /** For secret prompts: the only player who may see the text before it is revealed. */
   assignee?: string;
   revealed: boolean;
+  /** Phone games: the options shown on every phone, in this play's order. */
+  choices?: string[];
+}
+
+/** A mission played on the phones and counted by the game, not judged by the host. */
+export interface PhonePlay {
+  /** Who plays: the crew for a sabotage game, everyone still in for a quiz. */
+  players: string[];
+  /**
+   * Secret until counted: player -> chosen option for each question
+   * (index into the item's choices; in a sabotage game 0 guards and 1 sabotages).
+   * Other phones see an empty list for a player who has answered.
+   */
+  picks: Record<string, number[]>;
+  counted: boolean;
+  /** Sabotage games: how many sabotages were played. Shown once counted, but never who. */
+  sabotages?: number;
 }
 
 export interface MissionState {
@@ -54,6 +71,8 @@ export interface MissionState {
   items: MissionItemState[];
   /** For memory missions: when the items stop being shown on the TV. */
   showUntil: number | null;
+  /** Set for missions played on the phones. */
+  play?: PhonePlay;
 }
 
 export interface BanishmentState {
@@ -153,6 +172,10 @@ export type Action =
   | { type: 'missionReveal'; index: number }
   /** Memory missions: show the items for the card's showSeconds. */
   | { type: 'missionShow' }
+  /** Phone games: a player's answers (or a crew member's guard/sabotage), final once sent. */
+  | { type: 'missionPlay'; playerId: string; picks: number[] }
+  /** Host: count a phone game now, without waiting for everyone. */
+  | { type: 'missionCount' }
   | { type: 'startTimer'; seconds: number }
   | { type: 'clearTimer' }
   | { type: 'castVote'; playerId: string; targetId: string }
@@ -180,6 +203,7 @@ export const HOST_ACTIONS: Action['type'][] = [
   'missionResult',
   'missionReveal',
   'missionShow',
+  'missionCount',
   'startTimer',
   'clearTimer',
   'closeVoting',
