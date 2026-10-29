@@ -1,5 +1,6 @@
 import { playerById, questionWon } from '../engine/game';
 import { missionById, packOf } from '../engine/missions';
+import { GATE_RULES } from '../engine/missions-airport';
 import { TABLE_MANNERS } from '../engine/missions-dinner';
 import { POOL_SAFETY } from '../engine/missions-resort';
 import type { Action, GameState } from '../engine/types';
@@ -31,6 +32,7 @@ export function MissionBoard({ view, send }: { view: GameState; send: (a: Action
 
       {packOf(card) === 'resort' && <div className="safety">{POOL_SAFETY}</div>}
       {packOf(card) === 'dinner' && <div className="safety">{TABLE_MANNERS}</div>}
+      {packOf(card) === 'airport' && <div className="safety">{GATE_RULES}</div>}
 
       <div className="mission-cols">
         <div className="panel">
