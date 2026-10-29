@@ -28,7 +28,7 @@ const data = MISSIONS.map(({ id, pack, roles, prompts, phone, reward }) => ({
 writeFileSync(
   `${to}/missions.ts`,
   `${header}// deno-lint-ignore-file
-export type MissionPack = 'castle' | 'resort' | 'dinner';
+export type MissionPack = 'castle' | 'resort' | 'dinner' | 'airport';
 // deno-lint-ignore no-explicit-any
 export const MISSIONS: any[] = ${JSON.stringify(data)};
 // deno-lint-ignore no-explicit-any
