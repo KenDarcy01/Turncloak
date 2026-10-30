@@ -51,6 +51,12 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   return {
     ...s,
+    // Only the host screen keeps the play history; phones would just download it on every move.
+    usedMissions: viewer === TV ? s.usedMissions : [],
+    usedPrompts: viewer === TV ? s.usedPrompts : [],
+    // Screens show today's Round Table talk only.
+    talk: s.talk.filter((l) => l.day === s.day),
+    log: viewer === TV ? s.log : [],
     mission: missionFor(s, viewer),
     roles,
     votes,

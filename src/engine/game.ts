@@ -527,7 +527,7 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
       return !!s.doorsOpen === a.open ? s : { ...s, doorsOpen: a.open };
     case 'updateSettings':
       if (s.phase !== 'lobby') return s;
-      return { ...s, settings: { ...s.settings, ...a.settings } };
+      return { ...s, settings: { ...s.settings, ...cleanSettings(a.settings) } };
     case 'start': {
       if (s.phase !== 'lobby' || s.players.length < MIN_PLAYERS) return s;
       const roles = assignRoles(s, ctx);
@@ -625,7 +625,82 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
   }
 }
 
+const str = (x: unknown) => typeof x === 'string' && x.length <= 300;
+const PACKS: Settings['missionPack'][] = ['castle', 'resort', 'dinner', 'airport'];
+
+/** Keep only settings the host may change, each of the right type and in range. */
+function cleanSettings(x: unknown): Partial<Settings> | null {
+  if (!x || typeof x !== 'object') return null;
+  const i = x as Record<string, unknown>;
+  const out: Partial<Settings> = {};
+  const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isInteger(v) && v >= lo && v <= hi;
+  if (num(i.traitorCount, 0, 10)) out.traitorCount = i.traitorCount as number;
+  if (num(i.finalCount, 2, 10)) out.finalCount = i.finalCount as number;
+  if (num(i.voteSeconds, 10, 600)) out.voteSeconds = i.voteSeconds as number;
+  if (num(i.discussionSeconds, 30, 3600)) out.discussionSeconds = i.discussionSeconds as number;
+  if (typeof i.announceTraitors === 'boolean') out.announceTraitors = i.announceTraitors;
+  if (PACKS.includes(i.missionPack as Settings['missionPack'])) out.missionPack = i.missionPack as Settings['missionPack'];
+  return out;
+}
+
+/**
+ * Online, actions arrive from phones as untrusted JSON. Anything malformed is
+ * dropped here, so the rules below can trust the shape of what they get.
+ */
+export function wellFormed(a: unknown): a is Action {
+  if (!a || typeof a !== 'object') return false;
+  const x = a as Record<string, unknown>;
+  if ('playerId' in x && !str(x.playerId)) return false;
+  if ('targetId' in x && !str(x.targetId)) return false;
+  switch (x.type) {
+    case 'join':
+      return str(x.playerId) && typeof x.name === 'string' && x.name.length <= 1000;
+    case 'traitorChat':
+      return str(x.playerId) && typeof x.text === 'string' && x.text.length <= 1000;
+    case 'missionResult':
+      return x.result === 'success' || x.result === 'partial' || x.result === 'fail';
+    case 'missionReveal':
+      return typeof x.index === 'number' && Number.isInteger(x.index);
+    case 'missionPlay':
+      return str(x.playerId) && Array.isArray(x.picks) && x.picks.length <= 20;
+    case 'startTimer':
+      return typeof x.seconds === 'number' && x.seconds > 0 && x.seconds <= 3600;
+    case 'setDoors':
+      return typeof x.open === 'boolean';
+    case 'endVote':
+      return str(x.playerId) && (x.choice === 'end' || x.choice === 'banish');
+    case 'updateSettings':
+      return Object.keys(cleanSettings(x.settings) ?? {}).length > 0;
+    case 'castVote':
+    case 'nightPick':
+    case 'suspect':
+      return str(x.playerId) && str(x.targetId);
+    case 'leave':
+    case 'claimSeat':
+      return str(x.playerId);
+    case 'removePlayer':
+    case 'releaseSeat':
+      return str(x.targetId);
+    case 'loadHistory':
+      return Array.isArray(x.missions) && Array.isArray(x.prompts);
+    case 'addBot':
+    case 'start':
+    case 'advance':
+    case 'missionShow':
+    case 'missionCount':
+    case 'clearTimer':
+    case 'closeVoting':
+    case 'revealNext':
+    case 'restart':
+    case 'botTick':
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function reduce(s: GameState, a: Action, ctx: Ctx): GameState {
+  if (!wellFormed(a)) return s;
   const next = reduceInner(s, a, ctx);
   if (next === s) return s;
   const phaseSince = next.phase !== s.phase || next.voteRound !== s.voteRound ? ctx.now : next.phaseSince;

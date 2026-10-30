@@ -571,7 +571,8 @@ describe('the endgame', () => {
     const faithful = s.players.filter((p) => s.roles[p.id] !== 'traitor').map((p) => p.id);
     const keep = [...traitors.slice(0, traitorsLeft), ...faithful].slice(0, 4);
     const players = s.players.map((p) => (keep.includes(p.id) ? p : { ...p, alive: false, out: { by: 'banished' as const, day: 1 } }));
-    return { s: { ...s, players, phase: 'endgameVote' as const, endgame: true, endVotes: {} }, ctx, keep };
+    const g: GameState = { ...s, players, phase: 'endgameVote', endgame: true, endVotes: {} };
+    return { s: g, ctx, keep };
   }
 
   it('starts when the table is small, even if every Turncloak is already gone', () => {
