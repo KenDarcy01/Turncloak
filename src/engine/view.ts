@@ -1,4 +1,4 @@
-import { endgameReady } from './game';
+import { endgameReady, traitorsAgree } from './game';
 import { missionById } from './missions';
 import type { GameState, PhonePlay, Role } from './types';
 
@@ -56,6 +56,7 @@ export function viewFor(full: GameState, viewer: string): GameState {
     banishment,
     endVotes,
     nightPicks: isTraitor || over ? s.nightPicks : {},
+    nightAgreed: s.phase === 'night' && traitorsAgree(s),
     traitorChat: isTraitor || over ? s.traitorChat : [],
     suspicions: over ? s.suspicions : viewer in s.suspicions ? { [viewer]: s.suspicions[viewer] } : {},
   };

@@ -4,7 +4,7 @@ import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
 import type { GameConnection } from '../net/backend';
 import { buzz, useKeepAwake } from '../native';
-import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/components';
+import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, SendNotice, useView } from '../ui/components';
 import { TableTalk } from './HostScreen';
 
 /** A player's phone. Everything here is private to that player. */
@@ -89,6 +89,7 @@ function Shell({ children, me, pot }: { children: ReactNode; me?: Player; pot?: 
         {pot !== undefined && <div className="stat"><div className="k">Pot</div><div className="v" style={{ fontSize: '1.1rem' }}>{pot.toLocaleString()}</div></div>}
       </div>
       {children}
+      <SendNotice />
     </div>
   );
 }

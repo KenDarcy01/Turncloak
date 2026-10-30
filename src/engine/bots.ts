@@ -10,22 +10,58 @@ import type { Action, GameState, TalkLine } from './types';
 
 const pickOf = <T,>(arr: T[], rng: () => number) => arr[Math.floor(rng() * arr.length)];
 
-/** The latest thing each bot said this Round Table, keyed by speaker. */
+/** Most lines a bot says at one Round Table. */
+const MAX_LINES = 2;
+
+/** Everything said at today's Round Table, oldest first. */
 function talkToday(s: GameState): TalkLine[] {
   return s.talk.filter((l) => l.day === s.day && l.at >= s.phaseSince);
 }
 
-/** Who a bot would like to see banished, from what it said or a fresh suspicion. */
-function suspectFor(s: GameState, botId: string, rng: () => number, among = aliveIds(s)): string | undefined {
+/** Everything said today, including at a Round Table that has since moved on to the vote. */
+function saidToday(s: GameState): TalkLine[] {
+  return s.talk.filter((l) => l.day === s.day);
+}
+
+/** Whom this bot named last today, if anyone. */
+function ownAccusation(s: GameState, botId: string): string | undefined {
+  return [...saidToday(s)].reverse().find((l) => l.from === botId && l.target)?.target;
+}
+
+/** Who this bot is willing to point at: anyone else, but a Turncloak never names a fellow Turncloak. */
+function fairGame(s: GameState, botId: string, among: string[]): string[] {
   const options = among.filter((id) => id !== botId);
+  if (s.roles[botId] !== 'traitor') return options;
+  const truecloaks = options.filter((id) => s.roles[id] !== 'traitor');
+  return truecloaks.length ? truecloaks : options;
+}
+
+/** How many times each player was named today. This is what the bots have heard at the table. */
+export function heat(s: GameState): Record<string, number> {
+  const h: Record<string, number> = {};
+  for (const l of saidToday(s)) if (l.target) h[l.target] = (h[l.target] ?? 0) + 1;
+  return h;
+}
+
+/** The most-named player among these options, ties broken at random. */
+function hottest(s: GameState, options: string[], rng: () => number): string | undefined {
+  const h = heat(s);
+  const top = Math.max(0, ...options.map((id) => h[id] ?? 0));
+  if (top === 0) return undefined;
+  return pickOf(options.filter((id) => (h[id] ?? 0) === top), rng);
+}
+
+/**
+ * Who a bot votes for. A bot that named someone at the table votes for them, so its
+ * words and its vote match. A bot that said nothing goes with the table's main suspect.
+ */
+export function botVote(s: GameState, botId: string, rng: () => number): string | undefined {
+  const targets = voteTargets(s, botId);
+  const options = fairGame(s, botId, targets);
   if (!options.length) return undefined;
-  const isTraitor = s.roles[botId] === 'traitor';
-  // Turncloaks steer suspicion onto Truecloaks.
-  const pool = isTraitor ? options.filter((id) => s.roles[id] !== 'traitor') : options;
-  const usable = pool.length ? pool : options;
-  const said = [...s.talk].reverse().find((l) => l.from === botId && l.day === s.day && l.target)?.target;
-  if (said && usable.includes(said) && rng() < 0.75) return said;
-  return pickOf(usable, rng);
+  const said = ownAccusation(s, botId);
+  if (said && options.includes(said)) return said;
+  return hottest(s, options, rng) ?? pickOf(options, rng);
 }
 
 /** Every action the bots still owe in the current phase. */
@@ -37,13 +73,7 @@ export function botActions(s: GameState, rng: () => number): Action[] {
     const voters = eligibleVoters(s);
     for (const b of bots) {
       if (!voters.includes(b.id) || s.votes[b.id]) continue;
-      const targets = voteTargets(s, b.id);
-      // Truecloak bots sometimes pile on whoever already has votes, as people do.
-      const leaning = Object.values(s.votes).filter((t) => targets.includes(t) && t !== b.id);
-      const target =
-        s.roles[b.id] !== 'traitor' && leaning.length && rng() < 0.35
-          ? pickOf(leaning, rng)
-          : suspectFor(s, b.id, rng, targets);
+      const target = botVote(s, b.id, rng);
       if (target) out.push({ type: 'castVote', playerId: b.id, targetId: target });
     }
   }
@@ -126,41 +156,65 @@ const DEFEND = [
   'Of course you suspect me. That is exactly what the Turncloaks want you to do.',
 ];
 
+/** A bot sticking with the name it gave earlier. */
+const STAND = [
+  'I said it before and I will say it again: {t}. That is where my vote goes.',
+  'Nothing I have heard changes my mind. I am voting {t}.',
+  '{t}, you still have not answered me. My vote is yours.',
+];
+
+/** A bot won over by the table, saying so out loud before it votes the new way. */
+const SWITCH = [
+  'I have been listening. {s} is right and I was wrong. My vote goes to {t}.',
+  'I named someone else earlier, but the table has convinced me. It is {t}.',
+  'Fine. I am changing my vote. Everyone keeps coming back to {t}, and so will I.',
+];
+
 const fill = (tpl: string, t?: string, sp?: string) => tpl.replaceAll('{t}', t ?? 'someone').replaceAll('{s}', sp ?? 'them');
 
-/** One line of Round Table argument from a bot that has not spoken much yet. */
+/**
+ * One line of Round Table argument from a bot that has not spoken much yet.
+ * Bots listen: they back whoever the table keeps naming, stand by their own
+ * accusation, or say plainly that they have changed their mind. Whatever a bot
+ * says last is how it votes (see botVote).
+ */
 function speak(s: GameState, ctx: Ctx): TalkLine | null {
   const today = talkToday(s);
-  const bots = alive(s).filter((p) => p.isBot && today.filter((l) => l.from === p.id).length < 2);
+  const bots = alive(s).filter((p) => p.isBot && today.filter((l) => l.from === p.id).length < MAX_LINES);
   if (!bots.length) return null;
   const bot = pickOf(bots, ctx.rng);
   const name = (id?: string) => playerById(s, id)?.name;
+  const line = (text: string, target?: string): TalkLine => ({ from: bot.id, text, target, day: s.day, at: ctx.now });
+  const mine = ownAccusation(s, bot.id);
+  const spoke = today.some((l) => l.from === bot.id);
 
-  // Defend if someone just accused this bot.
-  const accused = today.some((l) => l.target === bot.id);
-  if (accused && ctx.rng() < 0.6) {
-    return { from: bot.id, text: pickOf(DEFEND, ctx.rng), day: s.day, at: ctx.now };
+  // Defend once if someone has named this bot.
+  const defended = today.some((l) => l.from === bot.id && !l.target);
+  if (!defended && today.some((l) => l.target === bot.id) && ctx.rng() < 0.6) return line(pickOf(DEFEND, ctx.rng));
+
+  const options = fairGame(s, bot.id, aliveIds(s));
+  const h = heat(s);
+  const leader = hottest(s, options, ctx.rng);
+  const accuserOf = (id: string) => [...saidToday(s)].reverse().find((l) => l.target === id && l.from !== bot.id)?.from;
+
+  if (mine && spoke) {
+    // Won over when the table has clearly settled on someone else.
+    if (leader && leader !== mine && (h[leader] ?? 0) >= (h[mine] ?? 0) + 2) {
+      return line(fill(pickOf(SWITCH, ctx.rng), name(leader), name(accuserOf(leader))), leader);
+    }
+    return line(fill(pickOf(STAND, ctx.rng), name(mine)), mine);
   }
-  // Sometimes back up a recent accusation, if it suits the bot.
-  const recent = today.filter((l) => l.target && l.target !== bot.id).slice(-3);
-  const backing = recent.length ? pickOf(recent, ctx.rng) : null;
-  const suitsMe = backing && (s.roles[bot.id] !== 'traitor' || s.roles[backing.target!] !== 'traitor');
-  if (backing && suitsMe && ctx.rng() < 0.4) {
-    return {
-      from: bot.id,
-      text: fill(pickOf(AGREE, ctx.rng), name(backing.target), name(backing.from)),
-      target: backing.target,
-      day: s.day,
-      at: ctx.now,
-    };
+
+  // Back the table's main suspect, more readily the more often they have been named.
+  if (leader && ctx.rng() < Math.min(0.8, 0.3 + 0.15 * (h[leader] ?? 0))) {
+    return line(fill(pickOf(AGREE, ctx.rng), name(leader), name(accuserOf(leader))), leader);
   }
-  const target = suspectFor(s, bot.id, ctx.rng);
+  const target = mine && options.includes(mine) ? mine : pickOf(options, ctx.rng);
   if (!target) return null;
   // Avoid repeating a line already heard today.
   const heard = new Set(today.map((l) => l.text.replaceAll(name(l.target) ?? '\u0000', '{t}')));
   const fresh = ACCUSE.filter((t) => !heard.has(t));
-  const tpl = pickOf(fresh.length ? fresh : ACCUSE, ctx.rng);
-  return { from: bot.id, text: fill(tpl, name(target)), target, day: s.day, at: ctx.now };
+  return line(fill(pickOf(fresh.length ? fresh : ACCUSE, ctx.rng), name(target)), target);
 }
 
 /** Lines a bot Turncloak whispers to a human Turncloak at night. */
@@ -208,4 +262,36 @@ export function botTick(s: GameState, ctx: Ctx): GameState {
   }
 
   return next;
+}
+
+/**
+ * Online games have no game loop of their own, so the host screen sends botTick
+ * while this is true. Works on the TV's redacted view, and stays false when no
+ * bot has anything left to do, so a quiet table makes no server calls.
+ */
+export function hostTickNeeded(view: GameState): boolean {
+  const bots = view.players.filter((p) => p.isBot && p.alive);
+  switch (view.phase) {
+    case 'roundtable': {
+      const today = talkToday(view);
+      return bots.some((b) => today.filter((l) => l.from === b.id).length < MAX_LINES);
+    }
+    case 'vote': {
+      if (view.timerEndsAt) return true;
+      const voters = eligibleVoters(view);
+      return bots.some((b) => voters.includes(b.id) && !view.votes[b.id]);
+    }
+    // The TV cannot see who has chosen at night, so keep ticking while there are bots.
+    case 'night':
+      return bots.length > 0;
+    case 'endgameVote':
+      return bots.some((b) => !view.endVotes[b.id]);
+    case 'mission': {
+      // Phone games: bots on the crew still owe their answers.
+      const play = view.mission?.play;
+      return !!play && !play.counted && play.players.some((id) => playerById(view, id)?.isBot && !play.picks[id]);
+    }
+    default:
+      return false;
+  }
 }

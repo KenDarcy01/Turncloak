@@ -128,6 +128,11 @@ export interface GameState {
   nightPicks: Record<string, string>;
   /** Secret: Turncloaks' private chat for the whole game. */
   traitorChat: ChatMessage[];
+  /**
+   * Public, filled in by viewFor: the Turncloaks have all chosen the same victim.
+   * Says nothing about who they are, and lets the host know when morning can come.
+   */
+  nightAgreed?: boolean;
   /** Truecloak "decoy" task at night, so every phone looks busy: player -> suspect. */
   suspicions: Record<string, string>;
   /** Who was found murdered at the latest breakfast. */

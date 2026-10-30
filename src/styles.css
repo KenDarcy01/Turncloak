@@ -381,3 +381,7 @@ button.link { appearance: none; background: none; border: 0; padding: 0; cursor:
 .phone-status li.done { border-color: var(--gold); color: var(--gold-bright); }
 .sabotage-count { font-size: clamp(4rem, 12vw, 8rem); line-height: 1; margin: 8px 0; }
 .pick-line { margin-top: 4px; }
+
+/* Slow or failed moves, pinned to the bottom of the screen. */
+.send-notice { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50; max-width: min(92vw, 420px); padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(11, 7, 8, 0.92); color: var(--parchment); text-align: center; font-size: 0.95rem; }
+.send-notice.failed { border-color: rgba(198, 42, 51, 0.7); background: rgba(90, 16, 22, 0.95); }

@@ -3,6 +3,7 @@ import { makeCode } from '../engine/game';
 import type { Action, GameState } from '../engine/types';
 import type { GameConnection } from './backend';
 import type { SeatInfo, TableInfo } from './device';
+import { sendStatus } from './status';
 
 /**
  * Online backend. Every move goes to the `game-action` edge function, which runs
@@ -43,6 +44,23 @@ async function call(code: string, action: Action | { type: 'create' } | { type: 
     throw new Error(message);
   }
   return data as { ok: boolean; changed?: boolean };
+}
+
+/** Moves that fail on the network or a busy server get one more try. A refusal does not. */
+async function sendWithRetry(code: string, action: Action) {
+  try {
+    return await call(code, action);
+  } catch (e) {
+    if (/not allowed|bad |no such game/.test((e as Error).message)) throw e;
+    await new Promise((r) => setTimeout(r, 1500));
+    return call(code, action);
+  }
+}
+
+function friendly(message: string) {
+  if (/not allowed/.test(message)) return 'That move is not yours to make.';
+  if (/no such game/.test(message)) return 'This game no longer exists.';
+  return 'That did not go through. Check your connection and try again.';
 }
 
 /** Create a game with a fresh code, retrying if the code is taken. */
@@ -158,9 +176,22 @@ export async function connectOnline(code: string, seat: string): Promise<GameCon
       return () => listeners.delete(fn);
     },
     send(action) {
-      call(code, action)
-        .then(refresh)
-        .catch((e) => console.warn('Move not accepted:', (e as Error).message));
+      // The heartbeat is not the player's move; a lost one is simply sent again.
+      if (action.type === 'botTick') {
+        call(code, action).then(refresh).catch(() => undefined);
+        return;
+      }
+      sendStatus.start();
+      sendWithRetry(code, action)
+        .then(() => {
+          sendStatus.done();
+          return refresh();
+        })
+        .catch((e) => {
+          console.warn('Move not accepted:', (e as Error).message);
+          sendStatus.fail(friendly((e as Error).message));
+          refresh();
+        });
     },
     close() {
       clearInterval(poll);

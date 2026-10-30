@@ -12,13 +12,14 @@ import {
   tally,
   traitorCountFor,
 } from '../engine/game';
+import { hostTickNeeded } from '../engine/bots';
 import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
 import { storage } from '../net/storage';
 import { shareInvite, useKeepAwake } from '../native';
-import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
+import { Avatar, Countdown, Gold, Logo, SendNotice, Seats, useView } from '../ui/components';
 import { MissionBoard } from './MissionBoard';
 
 interface Props {
@@ -61,6 +62,7 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
       </div>
       <Stage view={view} send={send} joinUrl={joinUrl} compact={compact} online={online} />
       {panel && <PlayersPanel view={view} send={send} joinUrl={joinUrl} online={online} onClose={() => setPanel(false)} />}
+      <SendNotice />
     </div>
   );
 }
@@ -87,14 +89,9 @@ function useMissionHistory(conn: GameConnection | null, view: GameState | null) 
   }, [conn, missions, prompts]);
 }
 
-const BOT_PHASES = ['roundtable', 'vote', 'night', 'endgameVote'];
-
 /** Ask the server to let the bots act every couple of seconds, and to close a vote whose time is up. */
 function useBotHeartbeat(conn: GameConnection | null, view: GameState | null) {
-  const needed =
-    !!view &&
-    ((BOT_PHASES.includes(view.phase) && view.players.some((p) => p.isBot && p.alive)) ||
-      (view.phase === 'vote' && !!view.timerEndsAt));
+  const needed = !!view && hostTickNeeded(view);
   useEffect(() => {
     if (!conn || !needed) return;
     const t = setInterval(() => conn.send({ type: 'botTick' }), 2000);
@@ -281,7 +278,16 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <Seats view={view} voted={(id) => !!view.votes[id]} />
           </div>
           <Controls hint="Votes lock automatically when everyone has voted">
-            <button className="btn" onClick={() => send({ type: 'closeVoting' })}>Close voting now</button>
+            <button
+              className="btn"
+              onClick={() => {
+                const missing = voters.length - done;
+                if (missing > 0 && !window.confirm(`${missing} ${missing === 1 ? 'vote is' : 'votes are'} still out. Close voting anyway?`)) return;
+                send({ type: 'closeVoting' });
+              }}
+            >
+              Close voting now
+            </button>
           </Controls>
         </>
       );
@@ -297,8 +303,20 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <div className="eyebrow">Night {view.day}</div>
             <div className="tv-title slow-in">Night falls over the castle</div>
             <div className="tv-sub">Everyone, look at your phone and keep tapping. The Turncloaks are choosing their victim.</div>
+            <div className="muted">{view.nightAgreed ? 'The Turncloaks have chosen.' : 'The Turncloaks are still choosing...'}</div>
           </div>
-          <Controls hint="Give the Turncloaks a minute, then">{next('Morning comes')}</Controls>
+          <Controls hint={view.nightAgreed ? 'When everyone is ready' : 'Waiting for the Turncloaks to agree'}>
+            <button
+              className={`btn ${view.nightAgreed ? 'primary' : ''}`}
+              onClick={() => {
+                // Morning before they agree means a victim chosen at random.
+                if (!view.nightAgreed && !window.confirm('The Turncloaks have not agreed yet. Bring the morning anyway? A victim will be chosen at random.')) return;
+                send({ type: 'advance' });
+              }}
+            >
+              Morning comes
+            </button>
+          </Controls>
         </>
       );
     }
