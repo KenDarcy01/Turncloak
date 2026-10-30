@@ -21,7 +21,8 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   const roles: Record<string, Role> = {};
   for (const p of s.players) {
-    const publiclyKnown = over || (!p.alive && p.out); // banished roles are revealed; murder victims are Truecloaks
+    // Banished roles are revealed (except in the endgame); murder victims are Truecloaks.
+    const publiclyKnown = over || (!p.alive && p.out && !p.out.secret);
     const banishedNotYetRevealed =
       s.phase === 'banishment' && s.banishment?.banishedId === p.id && s.banishment.step !== 'role';
     if (

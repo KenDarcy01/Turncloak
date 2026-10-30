@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   finalCount: 4,
   voteSeconds: 60,
   discussionSeconds: 300,
+  announceTraitors: false,
   missionPack: 'resort',
 };
 
@@ -285,13 +286,22 @@ function enterNight(s: GameState): GameState {
   return { ...s, phase: 'night', nightPicks: {}, suspicions: {}, timerEndsAt: null };
 }
 
-/** After a banishment or a murder: decide whether the game ends, the endgame starts, or play continues. */
+/**
+ * After a banishment or a murder: decide whether the game ends, the endgame starts, or play continues.
+ *
+ * Once the endgame starts the game never ends itself: if it did, the endgame vote
+ * appearing at all would tell everyone a Turncloak was still in. Only a unanimous
+ * vote to end, or a single player left standing, finishes it.
+ */
 function afterLoss(s: GameState, then: (s: GameState) => GameState): GameState {
+  const left = alive(s);
+  if (s.endgame && left.length === 1) return finish(s, s.roles[left[0].id] ?? 'faithful');
+  if (s.endgame || left.length <= finalCountFor(s)) {
+    const next = { ...s, phase: 'endgameVote' as const, endVotes: {}, timerEndsAt: null, endgame: true };
+    return s.endgame ? next : log(next, 'The endgame begins.');
+  }
   const winner = checkWinner(s);
   if (winner) return finish(s, winner);
-  if (alive(s).length <= finalCountFor(s)) {
-    return log({ ...s, phase: 'endgameVote', endVotes: {}, timerEndsAt: null }, 'The endgame begins.');
-  }
   return then(s);
 }
 
@@ -343,12 +353,14 @@ function settleVotes(s: GameState, ctx: Ctx): GameState {
 function revealBanished(s: GameState): GameState {
   const b = s.banishment!;
   const id = b.banishedId!;
+  const secret = !!s.endgame;
   const players = s.players.map((p) =>
-    p.id === id ? { ...p, alive: false, out: { by: 'banished' as const, day: s.day } } : p,
+    p.id === id ? { ...p, alive: false, out: { by: 'banished' as const, day: s.day, ...(secret ? { secret } : {}) } } : p,
   );
   const name = playerById(s, id)?.name ?? 'Someone';
   const role = s.roles[id] === 'traitor' ? 'a Turncloak' : 'a Truecloak';
-  return log({ ...s, players, banishment: { ...b, step: 'role' } }, `${name} was banished, and was ${role}.`);
+  const text = secret ? `${name} was banished. Their role stays secret until the end.` : `${name} was banished, and was ${role}.`;
+  return log({ ...s, players, banishment: { ...b, step: 'role' } }, text);
 }
 
 function murder(s: GameState, ctx: Ctx): GameState {
@@ -455,7 +467,11 @@ function removePlayer(s: GameState, id: string, ctx: Ctx): GameState {
   if (s.phase === 'lobby') return { ...s, players: s.players.filter((p) => p.id !== id) };
   if (!player.alive || s.phase === 'gameOver') return s;
 
-  const players = s.players.map((p) => (p.id === id ? { ...p, alive: false, away: undefined, out: { by: 'left' as const, day: s.day } } : p));
+  // In the endgame a role is only revealed when the game is over, even for someone who leaves.
+  const secret = !!s.endgame;
+  const players = s.players.map((p) =>
+    p.id === id ? { ...p, alive: false, away: undefined, out: { by: 'left' as const, day: s.day, ...(secret ? { secret } : {}) } } : p,
+  );
   const without = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([k, v]) => k !== id && v !== id)) as Record<string, T>;
   const candidates = s.voteCandidates?.filter((c) => c !== id) ?? null;
   const role = s.roles[id] === 'traitor' ? 'a Turncloak' : 'a Truecloak';
@@ -469,10 +485,15 @@ function removePlayer(s: GameState, id: string, ctx: Ctx): GameState {
       suspicions: without(s.suspicions),
       endVotes: without(s.endVotes),
     },
-    `${player.name} left the castle, and was ${role}.`,
+    secret ? `${player.name} left the game.` : `${player.name} left the game, and was ${role}.`,
   );
-  const winner = checkWinner(next);
-  if (winner) return finish(next, winner);
+  const left = alive(next);
+  if (secret) {
+    if (left.length === 1) return finish(next, next.roles[left[0].id] ?? 'faithful');
+  } else {
+    const winner = checkWinner(next);
+    if (winner) return finish(next, winner);
+  }
   // Their vote may have been the last one outstanding.
   if (next.phase === 'vote' && eligibleVoters(next).every((v) => next.votes[v])) next = closeVoting(next, ctx);
   return next;
