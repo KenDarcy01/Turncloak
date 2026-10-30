@@ -20,7 +20,12 @@ export interface Player {
   isBot: boolean;
   alive: boolean;
   /** How and on which day the player left the game. */
-  out?: { by: 'banished' | 'murdered' | 'left'; day: number };
+  out?: {
+    by: 'banished' | 'murdered' | 'left';
+    day: number;
+    /** Banished in the endgame: their role stays hidden until the game is over. */
+    secret?: boolean;
+  };
   /** The host freed this seat so the player can pick it up on another phone. */
   away?: boolean;
 }
@@ -32,6 +37,11 @@ export interface Settings {
   finalCount: number;
   voteSeconds: number;
   discussionSeconds: number;
+  /**
+   * Tell the table how many Turncloaks were dealt. Off by default, as on the show:
+   * nobody can count their way to the answer in the endgame.
+   */
+  announceTraitors?: boolean;
   /** Which set of missions to draw from. */
   missionPack: 'castle' | 'resort' | 'dinner' | 'airport';
 }
@@ -128,6 +138,11 @@ export interface GameState {
   nightPicks: Record<string, string>;
   /** Secret: Turncloaks' private chat for the whole game. */
   traitorChat: ChatMessage[];
+  /**
+   * Public, filled in by viewFor: the Turncloaks have all chosen the same victim.
+   * Says nothing about who they are, and lets the host know when morning can come.
+   */
+  nightAgreed?: boolean;
   /** Truecloak "decoy" task at night, so every phone looks busy: player -> suspect. */
   suspicions: Record<string, string>;
   /** Who was found murdered at the latest breakfast. */
@@ -135,6 +150,11 @@ export interface GameState {
   breakfastRevealed: boolean;
 
   endVotes: Record<string, 'end' | 'banish'>;
+  /**
+   * The endgame has begun. From here on banished roles stay secret and the game
+   * only ends when everyone left votes to end it (or one player remains).
+   */
+  endgame?: boolean;
   winner: Team | null;
 
   /** The host is letting new players join a game that has already started. */

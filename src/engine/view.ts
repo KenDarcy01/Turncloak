@@ -1,4 +1,4 @@
-import { endgameReady } from './game';
+import { endgameReady, traitorsAgree } from './game';
 import { missionById } from './missions';
 import type { GameState, PhonePlay, Role } from './types';
 
@@ -21,7 +21,8 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   const roles: Record<string, Role> = {};
   for (const p of s.players) {
-    const publiclyKnown = over || (!p.alive && p.out); // banished roles are revealed; murder victims are Truecloaks
+    // Banished roles are revealed (except in the endgame); murder victims are Truecloaks.
+    const publiclyKnown = over || (!p.alive && p.out && !p.out.secret);
     const banishedNotYetRevealed =
       s.phase === 'banishment' && s.banishment?.banishedId === p.id && s.banishment.step !== 'role';
     if (
@@ -50,12 +51,19 @@ export function viewFor(full: GameState, viewer: string): GameState {
 
   return {
     ...s,
+    // Only the host screen keeps the play history; phones would just download it on every move.
+    usedMissions: viewer === TV ? s.usedMissions : [],
+    usedPrompts: viewer === TV ? s.usedPrompts : [],
+    // Screens show today's Round Table talk only.
+    talk: s.talk.filter((l) => l.day === s.day),
+    log: viewer === TV ? s.log : [],
     mission: missionFor(s, viewer),
     roles,
     votes,
     banishment,
     endVotes,
     nightPicks: isTraitor || over ? s.nightPicks : {},
+    nightAgreed: s.phase === 'night' && traitorsAgree(s),
     traitorChat: isTraitor || over ? s.traitorChat : [],
     suspicions: over ? s.suspicions : viewer in s.suspicions ? { [viewer]: s.suspicions[viewer] } : {},
   };

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GameConnection } from '../net/backend';
 import type { GameState, Player, Role } from '../engine/types';
 import { buzz } from '../native';
+import { useSendStatus } from '../net/status';
 
 export function useView(conn: GameConnection | null): GameState | null {
   const [view, setView] = useState<GameState | null>(null);
@@ -182,4 +183,19 @@ export function PlayerChoice({
       ))}
     </div>
   );
+}
+
+/** A small notice when a move is slow to arrive or did not go through. */
+export function SendNotice() {
+  const { pending, failed } = useSendStatus();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!pending) return setSlow(false);
+    // Only mention sending when it takes long enough to notice.
+    const t = setTimeout(() => setSlow(true), 700);
+    return () => clearTimeout(t);
+  }, [pending]);
+  if (failed) return <div className="send-notice failed" role="alert">{failed}</div>;
+  if (slow) return <div className="send-notice" role="status">Sending...</div>;
+  return null;
 }

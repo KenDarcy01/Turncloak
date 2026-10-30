@@ -4,7 +4,7 @@ import { missionById } from '../engine/missions';
 import type { Action, GameState, Player } from '../engine/types';
 import type { GameConnection } from '../net/backend';
 import { buzz, useKeepAwake } from '../native';
-import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, useView } from '../ui/components';
+import { Avatar, Countdown, Logo, PlayerChoice, RoleCard, SendNotice, useView } from '../ui/components';
 import { TableTalk } from './HostScreen';
 
 /** A player's phone. Everything here is private to that player. */
@@ -17,7 +17,7 @@ export function PlayerScreen({ conn, top }: { conn: GameConnection; top?: ReactN
   if (!view) {
     return (
       <Shell>
-        <p className="lead center">Looking for the castle...</p>
+        <p className="lead center">Looking for the game...</p>
         <p className="muted center">Make sure the host screen is open.</p>
       </Shell>
     );
@@ -89,6 +89,7 @@ function Shell({ children, me, pot }: { children: ReactNode; me?: Player; pot?: 
         {pot !== undefined && <div className="stat"><div className="k">Pot</div><div className="v" style={{ fontSize: '1.1rem' }}>{pot.toLocaleString()}</div></div>}
       </div>
       {children}
+      <SendNotice />
     </div>
   );
 }
@@ -100,7 +101,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     return (
       <div className="stack center fade-in">
         <div className="eyebrow">You are out</div>
-        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the castle' : 'You were banished'}</h2>
+        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the game' : 'You were banished'}</h2>
         <p className="lead">Stay and watch, but keep what you know to yourself.</p>
       </div>
     );
@@ -111,7 +112,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       return (
         <div className="stack center">
           <div className="eyebrow">You have arrived</div>
-          <h2>Welcome to the castle, {me.name}</h2>
+          <h2>Welcome, {me.name}</h2>
           <p className="lead">Watch the big screen. The host will begin when everyone is seated.</p>
           <p className="muted">{view.players.length} guests so far.</p>
         </div>
@@ -131,15 +132,16 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
 
     case 'mission':
       return view.mission?.play
-        ? <PhoneGame key={me.id} view={view} me={me} traitor={traitor} send={send} />
-        : <MissionPhone view={view} me={me} traitor={traitor} />;
+        ? <PhoneGame key={me.id} view={view} me={me} send={send} />
+        : <MissionPhone view={view} me={me} />;
 
     case 'roundtable':
       return (
         <Wait
           eyebrow="The Round Table"
           title="Make your case"
-          lead={traitor ? 'Blend in. Cast suspicion on a Truecloak.' : 'Who has been acting strangely?'}
+          lead="Who has been acting strangely? Say it out loud."
+
         >
           <Countdown endsAt={view.timerEndsAt} />
           <TableTalk view={view} compact />
@@ -157,7 +159,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
           <div className="eyebrow">The votes are read</div>
           <h2>{b.banishedId === me.id && b.step === 'verdict' ? 'You have been banished' : 'Watch the big screen'}</h2>
           {b.banishedId === me.id && b.step === 'verdict' ? (
-            <p className="lead">Stand, and tell the castle who you really are.</p>
+            <p className="lead">{view.endgame ? 'Your role stays secret until the end. Keep it to yourself.' : 'Stand, and tell everyone who you really are.'}</p>
           ) : (
             mine && <p className="muted">You voted for {playerById(view, mine)?.name}.</p>
           )}
@@ -166,7 +168,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     }
 
     case 'night':
-      return traitor ? <TraitorNight view={view} me={me} send={send} /> : <FaithfulNight view={view} me={me} send={send} />;
+      return <Night key={me.id} view={view} me={me} traitor={traitor} send={send} />;
 
     case 'endgameVote':
       return <EndVote view={view} me={me} send={send} />;
@@ -227,63 +229,59 @@ function Vote({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
   );
 }
 
-function TraitorNight({ view, me, send }: { view: GameState; me: Player; send: (a: Action) => void }) {
+/**
+ * Night on every phone. Turncloaks choose a victim and whisper; Truecloaks keep a
+ * diary. Both screens share one layout and colour, so a glance across the table
+ * at night gives nothing away. Only the small print differs.
+ */
+function Night({ view, me, traitor, send }: { view: GameState; me: Player; traitor: boolean; send: (a: Action) => void }) {
   const [text, setText] = useState('');
-  const targets = murderTargets(view).map((id) => playerById(view, id)!);
+  // A Truecloak's diary stays on this phone. It exists so their screen looks like a Turncloak's.
+  const [diary, setDiary] = useState<{ from: string; text: string }[]>([]);
   const traitors = alive(view).filter((p) => view.roles[p.id] === 'traitor');
+  const others = traitors.filter((t) => t.id !== me.id);
+  const players = traitor ? murderTargets(view).map((id) => playerById(view, id)!) : alive(view).filter((p) => p.id !== me.id);
+  const selected = traitor ? view.nightPicks[me.id] : view.suspicions[me.id];
   const pickersFor = (id: string) => traitors.filter((t) => view.nightPicks[t.id] === id).map((t) => (t.id === me.id ? 'you' : t.name));
   const agreed = traitors.length > 0 && traitors.every((t) => view.nightPicks[t.id] && view.nightPicks[t.id] === view.nightPicks[traitors[0].id]);
+  const messages = traitor ? view.traitorChat.slice(-30) : diary;
   const say = () => {
-    if (!text.trim()) return;
-    send({ type: 'traitorChat', playerId: me.id, text });
+    const t = text.trim();
+    if (!t) return;
+    if (traitor) send({ type: 'traitorChat', playerId: me.id, text: t });
+    else setDiary((d) => [...d, { from: me.id, text: t }].slice(-30));
     setText('');
   };
-  return (
-    <div className="stack">
-      <div className="banner red">
-        <div className="eyebrow red">The Turncloaks meet</div>
-        <div>
-          {traitors.length > 1 ? `With ${traitors.filter((t) => t.id !== me.id).map((t) => t.name).join(', ')}. ` : 'You are alone tonight. '}
-          Choose who will not wake up. {traitors.length > 1 && 'You must all agree.'}
-        </div>
-      </div>
-      <PlayerChoice
-        players={targets}
-        selected={view.nightPicks[me.id]}
-        onPick={(id) => send({ type: 'nightPick', playerId: me.id, targetId: id })}
-        variant="traitor-pick"
-        meta={(p) => pickersFor(p.id).join(', ')}
-      />
-      {agreed && <div className="center red display" style={{ fontSize: '0.85rem', letterSpacing: '0.15em' }}>THE CHOICE IS MADE</div>}
-      {traitors.length > 1 && (
-        <div className="panel stack" style={{ padding: 14 }}>
-          <div className="eyebrow">Whisper to your fellow Turncloaks</div>
-          <div className="chat">
-            {view.traitorChat.slice(-30).map((m, i) => (
-              <div className="msg" key={i}><b>{m.from === me.id ? 'You' : playerById(view, m.from)?.name}</b>{m.text}</div>
-            ))}
-            {view.traitorChat.length === 0 && <div className="muted">No whispers yet.</div>}
-          </div>
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input className="field" value={text} placeholder="Plot quietly..." onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && say()} />
-            <button className="btn small" onClick={say}>Send</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+  const pick = (id: string) =>
+    send(traitor ? { type: 'nightPick', playerId: me.id, targetId: id } : { type: 'suspect', playerId: me.id, targetId: id });
 
-/** Truecloaks get a task too, so a phone being used at night gives nothing away. */
-function FaithfulNight({ view, me, send }: { view: GameState; me: Player; send: (a: Action) => void }) {
-  const others = alive(view).filter((p) => p.id !== me.id);
   return (
     <div className="stack">
       <div className="eyebrow">Night {view.day}</div>
-      <h2>Lock your door</h2>
-      <p className="lead">While the Turncloaks plot, write in your secret diary: who do you suspect most?</p>
-      <PlayerChoice players={others} selected={view.suspicions[me.id]} onPick={(id) => send({ type: 'suspect', playerId: me.id, targetId: id })} />
-      <p className="muted center">Your diary is private. Keep tapping so nobody can tell who is plotting.</p>
+      <h2>Choose a name</h2>
+      <p className="muted small" style={{ margin: 0 }}>
+        {traitor
+          ? `${others.length ? `With ${others.map((t) => t.name).join(', ')}. You must all agree. ` : ''}Choose who will not wake up.`
+          : 'Write in your secret diary: who do you suspect most?'}
+      </p>
+      <PlayerChoice players={players} selected={selected} onPick={pick} meta={traitor ? (p) => pickersFor(p.id).join(', ') : undefined} />
+      <p className="muted center small" style={{ margin: 0 }}>
+        {traitor ? (agreed ? 'The choice is made.' : 'Not chosen yet.') : selected ? 'Saved in your diary.' : 'Not chosen yet.'}
+      </p>
+      <div className="panel stack" style={{ padding: 14 }}>
+        <div className="eyebrow">Notes</div>
+        <div className="chat">
+          {messages.map((m, i) => (
+            <div className="msg" key={i}><b>{m.from === me.id ? 'You' : playerById(view, m.from)?.name}</b>{m.text}</div>
+          ))}
+          {messages.length === 0 && <div className="muted">Nothing written yet.</div>}
+        </div>
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <input className="field" value={text} placeholder="Write quietly..." onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && say()} />
+          <button className="btn small" onClick={say}>Send</button>
+        </div>
+      </div>
+      <p className="muted center small" style={{ margin: 0 }}>Keep tapping and writing, so nobody can tell who is plotting.</p>
     </div>
   );
 }
@@ -307,7 +305,7 @@ function EndVote({ view, me, send }: { view: GameState; me: Player; send: (a: Ac
 }
 
 /** Your part in the mission, including any secret prompt only you can see. */
-function MissionPhone({ view, me, traitor }: { view: GameState; me: Player; traitor: boolean }) {
+function MissionPhone({ view, me }: { view: GameState; me: Player }) {
   const m = view.mission!;
   const card = missionById(m.cardId);
   const mine = m.items.map((it, i) => ({ ...it, i })).filter((it) => it.assignee === me.id && it.text);
@@ -333,17 +331,13 @@ function MissionPhone({ view, me, traitor }: { view: GameState; me: Player; trai
         </div>
       ))}
       {!myRole && mine.length === 0 && <p className="lead">Follow the instructions on the big screen.</p>}
-      <p className="muted">
-        {traitor
-          ? 'A failed mission means less gold for the Truecloaks. Sabotage it if you dare, but do not get caught.'
-          : 'Every success adds gold to the pot. Watch for anyone who seems to be holding the team back.'}
-      </p>
+      <p className="muted">Every success adds gold to the pot. Watch for anyone who seems to be holding the team back.</p>
     </div>
   );
 }
 
 /** A mission played on the phone: guard or sabotage, or answer the questions. */
-function PhoneGame({ view, me, traitor, send }: { view: GameState; me: Player; traitor: boolean; send: (a: Action) => void }) {
+function PhoneGame({ view, me, send }: { view: GameState; me: Player; send: (a: Action) => void }) {
   const m = view.mission!;
   const play = m.play!;
   const card = missionById(m.cardId);
@@ -391,11 +385,10 @@ function PhoneGame({ view, me, traitor, send }: { view: GameState; me: Player; t
         {head}
         <p className="lead">Shield your screen and choose.</p>
         <button className="btn block" onClick={() => submit([0])}>Guard</button>
-        <button className="btn primary block" disabled={!traitor} onClick={() => submit([1])}>Sabotage</button>
+        {/* Both buttons work for everyone, so the screen looks the same whoever holds it. A Truecloak's sabotage counts as a guard. */}
+        <button className="btn primary block" onClick={() => submit([1])}>Sabotage</button>
         <p className="muted">
-          {traitor
-            ? 'One sabotage halves the gold; two lose it all. The TV shows how many, never who.'
-            : 'Only a Turncloak can sabotage. Guard, and remember who was on the crew.'}
+          Only a Turncloak&rsquo;s sabotage counts. One halves the gold; two lose it all. The TV shows how many, never who.
         </p>
       </div>
     );

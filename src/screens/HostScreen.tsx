@@ -5,20 +5,20 @@ import {
   autoTraitorCount,
   eligibleVoters,
   endgameReady,
-  finalCountFor,
   maxTraitors,
   MIN_PLAYERS,
   playerById,
   tally,
   traitorCountFor,
 } from '../engine/game';
+import { hostTickNeeded } from '../engine/bots';
 import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
 import { storage } from '../net/storage';
 import { shareInvite, useKeepAwake } from '../native';
-import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
+import { Avatar, Countdown, Gold, Logo, SendNotice, Seats, useView } from '../ui/components';
 import { MissionBoard } from './MissionBoard';
 
 interface Props {
@@ -61,6 +61,7 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
       </div>
       <Stage view={view} send={send} joinUrl={joinUrl} compact={compact} online={online} />
       {panel && <PlayersPanel view={view} send={send} joinUrl={joinUrl} online={online} onClose={() => setPanel(false)} />}
+      <SendNotice />
     </div>
   );
 }
@@ -87,14 +88,9 @@ function useMissionHistory(conn: GameConnection | null, view: GameState | null) 
   }, [conn, missions, prompts]);
 }
 
-const BOT_PHASES = ['roundtable', 'vote', 'night', 'endgameVote'];
-
 /** Ask the server to let the bots act every couple of seconds, and to close a vote whose time is up. */
 function useBotHeartbeat(conn: GameConnection | null, view: GameState | null) {
-  const needed =
-    !!view &&
-    ((BOT_PHASES.includes(view.phase) && view.players.some((p) => p.isBot && p.alive)) ||
-      (view.phase === 'vote' && !!view.timerEndsAt));
+  const needed = !!view && hostTickNeeded(view);
   useEffect(() => {
     if (!conn || !needed) return;
     const t = setInterval(() => conn.send({ type: 'botTick' }), 2000);
@@ -123,6 +119,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
       const table = Math.max(n, MIN_PLAYERS);
       const bots = view.players.filter((p) => p.isBot);
       const lastBot = bots[bots.length - 1];
+      const announce = !!view.settings.announceTraitors;
       return (
         <>
           <div className="tv-stage">
@@ -131,7 +128,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             {joinUrl && !compact && (online ? <JoinQr url={joinUrl} /> : <div className="muted">{joinUrl}</div>)}
             {joinUrl && !compact && <ShareButton code={view.code} url={joinUrl} />}
             <Seats view={view} />
-            {n === 0 && <div className="tv-sub muted">Waiting for guests to arrive at the castle...</div>}
+            {n === 0 && <div className="tv-sub muted">Waiting for players to join...</div>}
           </div>
           <Controls hint={`${n} of at least ${MIN_PLAYERS} players`}>
             <div className="row lobby-setting">
@@ -147,12 +144,23 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
                 value={view.settings.traitorCount}
                 onChange={(e) => send({ type: 'updateSettings', settings: { traitorCount: Number(e.target.value) } })}
               >
-                <option value={0}>Auto: {autoTraitorCount(table)}{n >= MIN_PLAYERS ? ` for ${n} players` : ''}</option>
+                <option value={0}>{announce ? `Auto: ${autoTraitorCount(table)}${n >= MIN_PLAYERS ? ` for ${n} players` : ''}` : 'Auto'}</option>
                 {[1, 2, 3].map((k) => (
                   <option key={k} value={k} disabled={k > maxTraitors(table)}>
                     {k}{k > maxTraitors(table) ? ` (needs ${2 * k + 1}+ players)` : ''}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="row lobby-setting">
+              <span className="muted">How many</span>
+              <select
+                className="field compact"
+                value={announce ? 'told' : 'secret'}
+                onChange={(e) => send({ type: 'updateSettings', settings: { announceTraitors: e.target.value === 'told' } })}
+              >
+                <option value="secret">Kept secret</option>
+                <option value="told">Told to everyone</option>
               </select>
             </label>
             <label className="row lobby-setting">
@@ -170,8 +178,12 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             </button>
             <p className="lobby-help muted">
               Bots fill empty seats. They vote, plot and argue, and play the phone games, but sit out the other missions.
-              Turncloaks is how many players are secretly dealt the Turncloak role. Auto picks 1 for up to 6 players, 2 for up to 11, then 3.
-              {view.settings.traitorCount > maxTraitors(table) && ` With ${n} players only ${traitorCountFor(view)} can be dealt.`}
+              Turncloaks is how many players are secretly dealt the Turncloak role.
+              {announce
+                ? ' Auto picks 1 for up to 6 players, 2 for up to 11, then 3.'
+                : ' Auto picks a fair number for the table. With the number kept secret, nobody can count their way to the answer.'}
+              {announce && view.settings.traitorCount > maxTraitors(table) && ` With ${n} players only ${traitorCountFor(view)} can be dealt.`}
+              {' '}Best with 5 or more: with 4, the endgame starts after the first banishment.
             </p>
           </Controls>
         </>
@@ -182,8 +194,12 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
       return (
         <>
           <div className="tv-stage">
-            <div className="eyebrow">The castle doors close</div>
-            <div className="tv-title slow-in">Among you are {traitorCountFor(view)} {traitorCountFor(view) === 1 ? 'Turncloak' : 'Turncloaks'}</div>
+            <div className="eyebrow">The doors close</div>
+            <div className="tv-title slow-in">
+              {view.settings.announceTraitors
+                ? `Among you are ${traitorCountFor(view)} ${traitorCountFor(view) === 1 ? 'Turncloak' : 'Turncloaks'}`
+                : 'Turncloaks walk among you. How many, nobody knows.'}
+            </div>
             <div className="tv-sub">Look at your phone. Press and hold to learn your role. Tell no one.</div>
             <Seats view={view} />
           </div>
@@ -227,8 +243,8 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <div className="eyebrow">Day {view.day} · Mission</div>
             <MissionBoard view={view} send={send} />
           </div>
-          <Controls hint={m.play && !m.play.counted ? 'The phones are playing. The result counts itself.' : 'Record the result'}>
-            {m.play && !m.play.counted ? null : <>
+          <Controls hint={m.play ? (m.play.counted ? 'The phones have been counted' : 'The phones are playing. The result counts itself.') : 'Record the result'}>
+            {m.play ? null : <>
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
             <button className={`btn ${r === 'partial' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'partial' })}>Half</button>
             <button className={`btn ${r === 'fail' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'fail' })}>Failed</button>
@@ -240,7 +256,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
     }
 
     case 'roundtable': {
-      const endgame = aliveIds(view).length <= finalCountFor(view);
+      const endgame = !!view.endgame;
       return (
         <>
           <div className="tv-stage">
@@ -281,7 +297,16 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <Seats view={view} voted={(id) => !!view.votes[id]} />
           </div>
           <Controls hint="Votes lock automatically when everyone has voted">
-            <button className="btn" onClick={() => send({ type: 'closeVoting' })}>Close voting now</button>
+            <button
+              className="btn"
+              onClick={() => {
+                const missing = voters.length - done;
+                if (missing > 0 && !window.confirm(`${missing} ${missing === 1 ? 'vote is' : 'votes are'} still out. Close voting anyway?`)) return;
+                send({ type: 'closeVoting' });
+              }}
+            >
+              Close voting now
+            </button>
           </Controls>
         </>
       );
@@ -295,10 +320,22 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
         <>
           <div className="tv-stage">
             <div className="eyebrow">Night {view.day}</div>
-            <div className="tv-title slow-in">Night falls over the castle</div>
+            <div className="tv-title slow-in">Night falls</div>
             <div className="tv-sub">Everyone, look at your phone and keep tapping. The Turncloaks are choosing their victim.</div>
+            <div className="muted">{view.nightAgreed ? 'The Turncloaks have chosen.' : 'The Turncloaks are still choosing...'}</div>
           </div>
-          <Controls hint="Give the Turncloaks a minute, then">{next('Morning comes')}</Controls>
+          <Controls hint={view.nightAgreed ? 'When everyone is ready' : 'Waiting for the Turncloaks to agree'}>
+            <button
+              className={`btn ${view.nightAgreed ? 'primary' : ''}`}
+              onClick={() => {
+                // Morning before they agree means a victim chosen at random.
+                if (!view.nightAgreed && !window.confirm('The Turncloaks have not agreed yet. Bring the morning anyway? A victim will be chosen at random.')) return;
+                send({ type: 'advance' });
+              }}
+            >
+              Morning comes
+            </button>
+          </Controls>
         </>
       );
     }
@@ -376,12 +413,27 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
   const banished = playerById(view, b.banishedId);
   const role = b.banishedId ? view.roles[b.banishedId] : undefined;
 
+  if (b.step === 'role' && banished && view.endgame && !role) {
+    return (
+      <>
+        <div className="tv-stage">
+          <Avatar player={banished} size="lg" />
+          <div className="tv-title slow-in">{banished.name} leaves the game</div>
+          <div className="tv-sub">In the endgame, roles stay secret until the very end.</div>
+        </div>
+        <Controls>
+          <button className="btn primary" onClick={() => send({ type: 'advance' })}>Continue</button>
+        </Controls>
+      </>
+    );
+  }
+
   if (b.step === 'role' && banished) {
     return (
       <>
         <div className="tv-stage">
           <Avatar player={banished} size="lg" />
-          <div className="tv-sub">{banished.name}, please tell the castle who you really are.</div>
+          <div className="tv-sub">{banished.name}, please tell everyone who you really are.</div>
           <div className="eyebrow">I am</div>
           <div className={`reveal-role display ${role}`}>{role === 'traitor' ? 'A Turncloak' : 'A Truecloak'}</div>
         </div>
@@ -436,7 +488,9 @@ function Banishment({ view, send, name }: { view: GameState; send: (a: Action) =
           </button>
         )}
         {b.step === 'tie' && <button className="btn primary" onClick={() => send({ type: 'advance' })}>Hold the revote</button>}
-        {b.step === 'verdict' && <button className="btn primary" onClick={() => send({ type: 'advance' })}>Reveal their role</button>}
+        {b.step === 'verdict' && (
+          <button className="btn primary" onClick={() => send({ type: 'advance' })}>{view.endgame ? 'Continue' : 'Reveal their role'}</button>
+        )}
       </Controls>
     </>
   );
@@ -461,7 +515,9 @@ function PlayersPanel({
   const remove = (id: string, name: string) => {
     const msg = lobby
       ? `Remove ${name} from the table?`
-      : `Remove ${name} from the game? They leave the castle and everyone sees whether they were a Turncloak.`;
+      : view.endgame
+        ? `Remove ${name} from the game? In the endgame their role stays secret until the end.`
+        : `Remove ${name} from the game? They leave and everyone sees whether they were a Turncloak.`;
     if (window.confirm(msg)) send({ type: 'removePlayer', targetId: id });
   };
   const doorsShown = !lobby && !over;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { botActions } from './bots';
+import { botActions, botVote, hostTickNeeded } from './bots';
 import { aliveIds, aliveTraitors, checkWinner, dealMission, endgameReady, murderTargets, newGame, playerById, reduce, traitorCountFor, type Ctx } from './game';
 import { MISSIONS } from './missions';
 import type { Action, GameState } from './types';
@@ -147,7 +147,7 @@ describe('full games with bots', () => {
       let { s, ctx } = setup(4 + (seed % 12), seed);
       let steps = 0;
       while (s.phase !== 'gameOver' && steps++ < 2000) {
-        if (s.phase === 'mission' && s.mission?.result === 'pending') {
+        if (s.phase === 'mission' && s.mission?.result === 'pending' && !s.mission.play) {
           s = reduce(s, { type: 'missionResult', result: 'success' }, ctx);
           continue;
         }
@@ -309,7 +309,8 @@ describe('bots', () => {
       const g = botGame(0, 5 + (seed % 6), seed);
       for (let i = 0; i < 3000 && g.get().phase !== 'gameOver'; i++) {
         const s = g.get();
-        if (s.phase === 'mission' && s.mission?.result === 'pending') g.step({ type: 'missionResult', result: 'partial' });
+        if (s.phase === 'mission' && s.mission?.play && !s.mission.play.counted) g.tick(3000);
+        else if (s.phase === 'mission' && s.mission?.result === 'pending') g.step({ type: 'missionResult', result: 'partial' });
         else if (['roleReveal', 'breakfast', 'mission', 'banishment'].includes(s.phase)) g.step({ type: 'advance' });
         else if (s.phase === 'roundtable') { g.tick(1500); if (i % 10 === 0) g.step({ type: 'advance' }); }
         else if (s.phase === 'night') { g.tick(3000); if (i % 8 === 0) g.step({ type: 'advance' }); }
@@ -494,11 +495,201 @@ describe('phone games', () => {
       for (let i = 0; i < 6; i++) s = reduce(s, { type: 'addBot' }, { rng, now });
       s = reduce(s, { type: 'start' }, { rng, now });
       s = { ...s, phase: 'mission', phaseSince: now, mission: dealMission(s, cardId, rng) };
-      for (let i = 0; i < 40; i++) { now += 3000; s = reduce(s, { type: 'botTick' }, { rng, now }); }
+      // Online, ticks only come while the host screen thinks they are needed.
+      for (let i = 0; i < 40 && hostTickNeeded(viewFor(s, TV)); i++) { now += 3000; s = reduce(s, { type: 'botTick' }, { rng, now }); }
+      expect(hostTickNeeded(viewFor(s, TV))).toBe(false);
       const play = s.mission!.play!;
       const bots = play.players.filter((id) => playerById(s, id)?.isBot);
       expect(bots.length).toBeGreaterThan(0);
       for (const id of bots) expect(play.picks[id]).toBeTruthy();
     }
+  });
+});
+
+describe('bots at the Round Table', () => {
+  function table(seed: number) {
+    let now = 1_000_000;
+    const rng = seeded(seed);
+    let s = newGame('TALK');
+    s = reduce(s, { type: 'join', playerId: 'h0', name: 'H0' }, { rng, now });
+    for (let i = 0; i < 7; i++) s = reduce(s, { type: 'addBot' }, { rng, now });
+    s = reduce(s, { type: 'start' }, { rng, now });
+    s = { ...s, phase: 'roundtable', phaseSince: now, day: 1 };
+    for (let i = 0; i < 60 && hostTickNeeded(viewFor(s, TV)); i++) { now += 1500; s = reduce(s, { type: 'botTick' }, { rng, now }); }
+    s = reduce(s, { type: 'advance' }, { rng, now });
+    for (let i = 0; i < 60 && s.phase === 'vote'; i++) { now += 3000; s = reduce(s, { type: 'botTick' }, { rng, now }); }
+    return s;
+  }
+
+  it('vote for the last person they named', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = table(seed);
+      const votes = s.banishment?.votes ?? s.votes;
+      let named = 0;
+      for (const b of s.players.filter((p) => p.isBot)) {
+        const said = [...s.talk].reverse().find((l) => l.from === b.id && l.target)?.target;
+        if (!said || !votes[b.id]) continue;
+        named++;
+        expect(votes[b.id]).toBe(said);
+      }
+      expect(named).toBeGreaterThan(0);
+    }
+  });
+
+  it('never name a fellow Turncloak, and Turncloak bots never vote for one', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = table(seed);
+      for (const l of s.talk) if (s.roles[l.from] === 'traitor' && l.target) expect(s.roles[l.target]).not.toBe('traitor');
+      const votes = s.banishment?.votes ?? s.votes;
+      for (const [voter, target] of Object.entries(votes)) {
+        if (s.roles[voter] === 'traitor' && playerById(s, voter)!.isBot) expect(s.roles[target]).not.toBe('traitor');
+      }
+    }
+  });
+
+  it('who said nothing follow the most-named player', () => {
+    const { s } = setup(6);
+    const bot = 'p5';
+    const talked: GameState = {
+      ...s,
+      phase: 'vote',
+      roles: Object.fromEntries(s.players.map((p) => [p.id, 'faithful'])),
+      talk: [
+        { from: 'p1', text: '', target: 'p2', day: s.day, at: 0 },
+        { from: 'p3', text: '', target: 'p2', day: s.day, at: 0 },
+        { from: 'p4', text: '', target: 'p0', day: s.day, at: 0 },
+      ],
+    };
+    expect(botVote(talked, bot, seeded(1))).toBe('p2');
+  });
+});
+
+describe('the endgame', () => {
+  /** Eight players, two Turncloaks, play jumped forward to an endgame of four. */
+  function endgame(traitorsLeft: number) {
+    const { s, ctx } = setup(8, 5);
+    const traitors = s.players.filter((p) => s.roles[p.id] === 'traitor').map((p) => p.id);
+    const faithful = s.players.filter((p) => s.roles[p.id] !== 'traitor').map((p) => p.id);
+    const keep = [...traitors.slice(0, traitorsLeft), ...faithful].slice(0, 4);
+    const players = s.players.map((p) => (keep.includes(p.id) ? p : { ...p, alive: false, out: { by: 'banished' as const, day: 1 } }));
+    const g: GameState = { ...s, players, phase: 'endgameVote', endgame: true, endVotes: {} };
+    return { s: g, ctx, keep };
+  }
+
+  it('starts when the table is small, even if every Turncloak is already gone', () => {
+    const { s, ctx } = setup(8, 5);
+    const traitors = s.players.filter((p) => s.roles[p.id] === 'traitor').map((p) => p.id);
+    const faithful = s.players.filter((p) => s.roles[p.id] !== 'traitor').map((p) => p.id);
+    // Five left, no Turncloaks. Banishing one more reaches the endgame instead of ending the game.
+    const keep = faithful.slice(0, 5);
+    let g: GameState = {
+      ...s,
+      players: s.players.map((p) => (keep.includes(p.id) ? p : { ...p, alive: false, out: { by: 'banished' as const, day: 1 } })),
+      phase: 'banishment',
+      banishment: { order: [], votes: {}, revealed: 0, step: 'verdict', tied: [], banishedId: keep[0] },
+    };
+    expect(traitors.every((id) => !keep.includes(id))).toBe(true);
+    g = run(g, ctx, { type: 'advance' }, { type: 'advance' });
+    expect(g.phase).toBe('endgameVote');
+    expect(g.endgame).toBe(true);
+  });
+
+  it('keeps banished roles secret and does not end itself when the last Turncloak goes', () => {
+    let { s, ctx, keep } = endgame(1);
+    const traitor = keep.find((id) => s.roles[id] === 'traitor')!;
+    // Not unanimous: back to the Round Table, and everyone votes out the Turncloak.
+    for (const id of keep) s = run(s, ctx, { type: 'endVote', playerId: id, choice: id === traitor ? 'end' : 'banish' });
+    s = run(s, ctx, { type: 'advance' }, { type: 'advance' });
+    expect(s.phase).toBe('vote');
+    for (const id of keep) s = run(s, ctx, { type: 'castVote', playerId: id, targetId: id === traitor ? keep.find((x) => x !== traitor)! : traitor });
+    while (s.banishment!.step === 'votes') s = run(s, ctx, { type: 'revealNext' });
+    s = run(s, ctx, { type: 'advance' });
+    expect(s.banishment!.banishedId).toBe(traitor);
+    for (const viewer of [TV, ...keep.filter((id) => id !== traitor)]) expect(viewFor(s, viewer).roles[traitor]).toBeUndefined();
+    expect(s.log.at(-1)!.text).not.toContain('Turncloak');
+    s = run(s, ctx, { type: 'advance' });
+    // No Turncloaks left, but only the table can end the game.
+    expect(s.phase).toBe('endgameVote');
+    for (const id of aliveIds(s)) s = run(s, ctx, { type: 'endVote', playerId: id, choice: 'end' });
+    s = run(s, ctx, { type: 'advance' });
+    expect(s.winner).toBe('faithful');
+    expect(viewFor(s, TV).roles[traitor]).toBe('traitor');
+  });
+
+  it('hands the pot to a Turncloak still at the table when everyone votes to end', () => {
+    let { s, ctx, keep } = endgame(1);
+    for (const id of keep) s = run(s, ctx, { type: 'endVote', playerId: id, choice: 'end' });
+    s = run(s, ctx, { type: 'advance' });
+    expect(s.winner).toBe('traitor');
+  });
+
+  it('ends with the last player standing', () => {
+    let { s, ctx, keep } = endgame(1);
+    s = { ...s, players: s.players.map((p) => (keep.slice(2).includes(p.id) ? { ...p, alive: false, out: { by: 'banished' as const, day: 2, secret: true } } : p)) };
+    const [a, b] = keep;
+    s = run(s, ctx, { type: 'removePlayer', targetId: a });
+    expect(s.phase).toBe('gameOver');
+    expect(s.winner).toBe(s.roles[b]);
+  });
+});
+
+describe('the night on the TV', () => {
+  it('says when the Turncloaks have agreed, and nothing about who they are', () => {
+    let { s, ctx } = setup(8);
+    s = { ...s, phase: 'night', nightPicks: {} };
+    const traitors = aliveTraitors(s).map((p) => p.id);
+    const target = murderTargets(s)[0];
+    expect(viewFor(s, TV).nightAgreed).toBe(false);
+    s = run(s, ctx, { type: 'nightPick', playerId: traitors[0], targetId: target });
+    expect(viewFor(s, TV).nightAgreed).toBe(false);
+    s = run(s, ctx, { type: 'nightPick', playerId: traitors[1], targetId: target });
+    const tv = viewFor(s, TV);
+    expect(tv.nightAgreed).toBe(true);
+    expect(tv.nightPicks).toEqual({});
+  });
+});
+
+describe('the number of Turncloaks', () => {
+  it('is kept secret unless the host chooses to tell', () => {
+    expect(newGame('X').settings.announceTraitors).toBe(false);
+  });
+});
+
+describe('table tidying', () => {
+  it('gives a newcomer a colour nobody has', () => {
+    const ctx: Ctx = { rng: seeded(), now: 0 };
+    let s = newGame('X');
+    for (let i = 0; i < 4; i++) s = reduce(s, { type: 'join', playerId: `p${i}`, name: `P${i}` }, ctx);
+    s = run(s, ctx, { type: 'removePlayer', targetId: 'p1' }, { type: 'join', playerId: 'p9', name: 'P9' });
+    expect(new Set(s.players.map((p) => p.color)).size).toBe(s.players.length);
+  });
+
+  it('clears a seat waiting for a new phone when the game is played again', () => {
+    let { s, ctx } = setup(5);
+    s = run(s, ctx, { type: 'releaseSeat', targetId: 'p2' });
+    s = run({ ...s, phase: 'gameOver', winner: 'faithful' }, ctx, { type: 'restart' });
+    expect(s.players.find((p) => p.id === 'p2')!.away).toBeUndefined();
+  });
+
+  it('does not let the host overwrite a phone game result', () => {
+    const { s, ctx } = setup(8);
+    const g: GameState = { ...s, phase: 'mission', mission: dealMission(s, 'phone-treasury-run', seeded(2)) };
+    expect(run(g, ctx, { type: 'missionResult', result: 'success' })).toBe(g);
+  });
+
+  it('drops malformed actions from phones', () => {
+    const { s, ctx } = setup(5);
+    expect(reduce(s, { type: 'traitorChat', playerId: 'p0', text: 42 } as unknown as Action, ctx)).toBe(s);
+    expect(reduce(s, { type: 'nonsense' } as unknown as Action, ctx)).toBe(s);
+    const lobby = newGame('Y');
+    expect(reduce(lobby, { type: 'updateSettings', settings: { missionPack: 'moon' } } as unknown as Action, ctx)).toBe(lobby);
+    expect(reduce(lobby, { type: 'updateSettings', settings: { announceTraitors: true } }, ctx).settings.announceTraitors).toBe(true);
+  });
+
+  it('keeps the history off the phones', () => {
+    let { s } = setup(5);
+    s = { ...s, usedPrompts: ['a riddle'], usedMissions: ['m1'] };
+    expect(viewFor(s, 'p0').usedPrompts).toEqual([]);
+    expect(viewFor(s, TV).usedPrompts).toEqual(['a riddle']);
   });
 });

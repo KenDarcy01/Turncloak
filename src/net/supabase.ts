@@ -3,6 +3,7 @@ import { makeCode } from '../engine/game';
 import type { Action, GameState } from '../engine/types';
 import type { GameConnection } from './backend';
 import type { SeatInfo, TableInfo } from './device';
+import { sendStatus } from './status';
 
 /**
  * Online backend. Every move goes to the `game-action` edge function, which runs
@@ -29,7 +30,7 @@ export async function ensureUser(): Promise<string> {
   return signed.user.id;
 }
 
-async function call(code: string, action: Action | { type: 'create' } | { type: 'deleteMe' }) {
+async function call(code: string, action: Action | { type: 'create' } | { type: 'deleteMe' }, again = true): Promise<{ ok: boolean; changed?: boolean }> {
   const { data, error } = await sb().functions.invoke('game-action', { body: { code, action } });
   if (error) {
     // The function's own JSON error, when there is one, is more useful than the HTTP wrapper.
@@ -40,9 +41,32 @@ async function call(code: string, action: Action | { type: 'create' } | { type: 
     } catch {
       /* keep the original message */
     }
+    // Guests unused for a month are tidied away on the server. Start again as a new guest.
+    if (message === 'not signed in' && again && action.type !== 'deleteMe') {
+      await sb().auth.signOut({ scope: 'local' });
+      await ensureUser();
+      return call(code, action, false);
+    }
     throw new Error(message);
   }
   return data as { ok: boolean; changed?: boolean };
+}
+
+/** Moves that fail on the network or a busy server get one more try. A refusal does not. */
+async function sendWithRetry(code: string, action: Action) {
+  try {
+    return await call(code, action);
+  } catch (e) {
+    if (/not allowed|bad |no such game/.test((e as Error).message)) throw e;
+    await new Promise((r) => setTimeout(r, 1500));
+    return call(code, action);
+  }
+}
+
+function friendly(message: string) {
+  if (/not allowed/.test(message)) return 'That move is not yours to make.';
+  if (/no such game/.test(message)) return 'This game no longer exists.';
+  return 'That did not go through. Check your connection and try again.';
 }
 
 /** Create a game with a fresh code, retrying if the code is taken. */
@@ -60,17 +84,30 @@ export async function hostGame(): Promise<string> {
   throw new Error('Could not find a free game code. Try again.');
 }
 
+interface FoundGame {
+  id: string;
+  phase: string;
+  doors_open: boolean;
+  free_seats: TableInfo['freeSeats'] | null;
+  is_host: boolean;
+}
+
+/** Look up one game by its code. Phones cannot browse the list of games. */
+async function findGame(code: string): Promise<FoundGame | null> {
+  await ensureUser();
+  const { data } = await sb().rpc('find_game', { p_code: code });
+  return ((data as FoundGame[] | null) ?? [])[0] ?? null;
+}
+
 async function gameId(code: string): Promise<string | null> {
-  const { data } = await sb().from('games').select('id').eq('code', code).maybeSingle();
-  return data?.id ?? null;
+  return (await findGame(code))?.id ?? null;
 }
 
 /** Public facts about a game, readable before this phone has a seat. Null if there is no such game. */
 export async function tableInfo(code: string): Promise<TableInfo | null> {
-  const uid = await ensureUser();
-  const { data } = await sb().from('games').select('phase, doors_open, free_seats, host_user_id').eq('code', code).maybeSingle();
-  if (!data) return null;
-  return { phase: data.phase, doorsOpen: data.doors_open, freeSeats: data.free_seats ?? [], isHost: data.host_user_id === uid };
+  const g = await findGame(code);
+  if (!g) return null;
+  return { phase: g.phase, doorsOpen: g.doors_open, freeSeats: g.free_seats ?? [], isHost: g.is_host };
 }
 
 /** The seats this phone holds in a game, found on the server so they survive a refresh or a closed tab. */
@@ -158,9 +195,22 @@ export async function connectOnline(code: string, seat: string): Promise<GameCon
       return () => listeners.delete(fn);
     },
     send(action) {
-      call(code, action)
-        .then(refresh)
-        .catch((e) => console.warn('Move not accepted:', (e as Error).message));
+      // The heartbeat is not the player's move; a lost one is simply sent again.
+      if (action.type === 'botTick') {
+        call(code, action).then(refresh).catch(() => undefined);
+        return;
+      }
+      sendStatus.start();
+      sendWithRetry(code, action)
+        .then(() => {
+          sendStatus.done();
+          return refresh();
+        })
+        .catch((e) => {
+          console.warn('Move not accepted:', (e as Error).message);
+          sendStatus.fail(friendly((e as Error).message));
+          refresh();
+        });
     },
     close() {
       clearInterval(poll);
