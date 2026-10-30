@@ -3,7 +3,7 @@ import { missionById } from './missions';
 import type { Action, GameState, TalkLine } from './types';
 
 /**
- * Stand-in players, so a small group can still have a full castle. Bots vote,
+ * Stand-in players, so a small group can still have a full table. Bots vote,
  * murder, keep a night diary and argue at the Round Table. They have no hidden
  * knowledge beyond their own role (and fellow Turncloaks, if they are one).
  */
@@ -135,7 +135,7 @@ const ACCUSE = [
   'I have been watching {t}. Every time the Turncloaks come up, {t} goes very quiet.',
   '{t}, you went very quiet during the mission. What were you thinking about?',
   'My gut says {t}. I cannot explain it, but my gut has never lied to me.',
-  '{t} looks far too relaxed for someone in a castle full of Turncloaks.',
+  '{t} looks far too relaxed for someone in a room full of Turncloaks.',
   'I am a Truecloak, hand on heart. And I do not trust {t} one bit.',
   'Did anyone else notice {t} barely tried in the mission? That was not an accident.',
   '{t} keeps agreeing with whoever spoke last. That is how a Turncloak hides.',

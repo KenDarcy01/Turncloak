@@ -1,9 +1,8 @@
 import type { MissionCard, PromptItem } from './missions';
 
 /**
- * The Family Dinner pack: quiet, seated missions for a restaurant table,
- * for players aged 10 and up. Nothing needed beyond phones and what is
- * already on the table.
+ * The Family Dinner pack: quiet, seated missions for a family at a restaurant
+ * table. Nothing needed beyond phones and what is already on the table.
  */
 
 export const TABLE_MANNERS =

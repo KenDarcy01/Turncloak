@@ -17,7 +17,7 @@ export function PlayerScreen({ conn, top }: { conn: GameConnection; top?: ReactN
   if (!view) {
     return (
       <Shell>
-        <p className="lead center">Looking for the castle...</p>
+        <p className="lead center">Looking for the game...</p>
         <p className="muted center">Make sure the host screen is open.</p>
       </Shell>
     );
@@ -101,7 +101,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
     return (
       <div className="stack center fade-in">
         <div className="eyebrow">You are out</div>
-        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the castle' : 'You were banished'}</h2>
+        <h2>{me.out?.by === 'murdered' ? 'You were murdered in the night' : me.out?.by === 'left' ? 'You have left the game' : 'You were banished'}</h2>
         <p className="lead">Stay and watch, but keep what you know to yourself.</p>
       </div>
     );
@@ -112,7 +112,7 @@ function Body({ view, me, send }: { view: GameState; me: Player; send: (a: Actio
       return (
         <div className="stack center">
           <div className="eyebrow">You have arrived</div>
-          <h2>Welcome to the castle, {me.name}</h2>
+          <h2>Welcome, {me.name}</h2>
           <p className="lead">Watch the big screen. The host will begin when everyone is seated.</p>
           <p className="muted">{view.players.length} guests so far.</p>
         </div>

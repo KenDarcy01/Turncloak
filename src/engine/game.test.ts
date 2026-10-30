@@ -147,7 +147,7 @@ describe('full games with bots', () => {
       let { s, ctx } = setup(4 + (seed % 12), seed);
       let steps = 0;
       while (s.phase !== 'gameOver' && steps++ < 2000) {
-        if (s.phase === 'mission' && s.mission?.result === 'pending') {
+        if (s.phase === 'mission' && s.mission?.result === 'pending' && !s.mission.play) {
           s = reduce(s, { type: 'missionResult', result: 'success' }, ctx);
           continue;
         }
@@ -309,7 +309,8 @@ describe('bots', () => {
       const g = botGame(0, 5 + (seed % 6), seed);
       for (let i = 0; i < 3000 && g.get().phase !== 'gameOver'; i++) {
         const s = g.get();
-        if (s.phase === 'mission' && s.mission?.result === 'pending') g.step({ type: 'missionResult', result: 'partial' });
+        if (s.phase === 'mission' && s.mission?.play && !s.mission.play.counted) g.tick(3000);
+        else if (s.phase === 'mission' && s.mission?.result === 'pending') g.step({ type: 'missionResult', result: 'partial' });
         else if (['roleReveal', 'breakfast', 'mission', 'banishment'].includes(s.phase)) g.step({ type: 'advance' });
         else if (s.phase === 'roundtable') { g.tick(1500); if (i % 10 === 0) g.step({ type: 'advance' }); }
         else if (s.phase === 'night') { g.tick(3000); if (i % 8 === 0) g.step({ type: 'advance' }); }
@@ -651,5 +652,44 @@ describe('the night on the TV', () => {
 describe('the number of Turncloaks', () => {
   it('is kept secret unless the host chooses to tell', () => {
     expect(newGame('X').settings.announceTraitors).toBe(false);
+  });
+});
+
+describe('table tidying', () => {
+  it('gives a newcomer a colour nobody has', () => {
+    const ctx: Ctx = { rng: seeded(), now: 0 };
+    let s = newGame('X');
+    for (let i = 0; i < 4; i++) s = reduce(s, { type: 'join', playerId: `p${i}`, name: `P${i}` }, ctx);
+    s = run(s, ctx, { type: 'removePlayer', targetId: 'p1' }, { type: 'join', playerId: 'p9', name: 'P9' });
+    expect(new Set(s.players.map((p) => p.color)).size).toBe(s.players.length);
+  });
+
+  it('clears a seat waiting for a new phone when the game is played again', () => {
+    let { s, ctx } = setup(5);
+    s = run(s, ctx, { type: 'releaseSeat', targetId: 'p2' });
+    s = run({ ...s, phase: 'gameOver', winner: 'faithful' }, ctx, { type: 'restart' });
+    expect(s.players.find((p) => p.id === 'p2')!.away).toBeUndefined();
+  });
+
+  it('does not let the host overwrite a phone game result', () => {
+    const { s, ctx } = setup(8);
+    const g: GameState = { ...s, phase: 'mission', mission: dealMission(s, 'phone-treasury-run', seeded(2)) };
+    expect(run(g, ctx, { type: 'missionResult', result: 'success' })).toBe(g);
+  });
+
+  it('drops malformed actions from phones', () => {
+    const { s, ctx } = setup(5);
+    expect(reduce(s, { type: 'traitorChat', playerId: 'p0', text: 42 } as unknown as Action, ctx)).toBe(s);
+    expect(reduce(s, { type: 'nonsense' } as unknown as Action, ctx)).toBe(s);
+    const lobby = newGame('Y');
+    expect(reduce(lobby, { type: 'updateSettings', settings: { missionPack: 'moon' } } as unknown as Action, ctx)).toBe(lobby);
+    expect(reduce(lobby, { type: 'updateSettings', settings: { announceTraitors: true } }, ctx).settings.announceTraitors).toBe(true);
+  });
+
+  it('keeps the history off the phones', () => {
+    let { s } = setup(5);
+    s = { ...s, usedPrompts: ['a riddle'], usedMissions: ['m1'] };
+    expect(viewFor(s, 'p0').usedPrompts).toEqual([]);
+    expect(viewFor(s, TV).usedPrompts).toEqual(['a riddle']);
   });
 });

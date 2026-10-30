@@ -47,7 +47,7 @@ export type MissionPack = 'castle' | 'resort' | 'dinner' | 'airport';
 export const MISSION_PACKS: { id: MissionPack; name: string; blurb: string }[] = [
   { id: 'resort', name: 'Resort & Pool', blurb: 'Warm and cold pools, an inflatable ring and an inflatable football' },
   { id: 'castle', name: 'Castle (indoors)', blurb: 'Living room games with paper, cups and a spoon' },
-  { id: 'dinner', name: 'Family Dinner', blurb: 'Quiet games for a restaurant table, ages 10 and up, nothing needed but phones' },
+  { id: 'dinner', name: 'Family Dinner', blurb: 'Quiet games for a family restaurant table, nothing needed but phones' },
   { id: 'airport', name: 'Airport Gate', blurb: 'Quiet seated games while you wait for a flight, nothing needed but phones' },
 ];
 

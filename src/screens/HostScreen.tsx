@@ -128,7 +128,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             {joinUrl && !compact && (online ? <JoinQr url={joinUrl} /> : <div className="muted">{joinUrl}</div>)}
             {joinUrl && !compact && <ShareButton code={view.code} url={joinUrl} />}
             <Seats view={view} />
-            {n === 0 && <div className="tv-sub muted">Waiting for guests to arrive at the castle...</div>}
+            {n === 0 && <div className="tv-sub muted">Waiting for players to join...</div>}
           </div>
           <Controls hint={`${n} of at least ${MIN_PLAYERS} players`}>
             <div className="row lobby-setting">
@@ -194,7 +194,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
       return (
         <>
           <div className="tv-stage">
-            <div className="eyebrow">The castle doors close</div>
+            <div className="eyebrow">The doors close</div>
             <div className="tv-title slow-in">
               {view.settings.announceTraitors
                 ? `Among you are ${traitorCountFor(view)} ${traitorCountFor(view) === 1 ? 'Turncloak' : 'Turncloaks'}`
@@ -243,8 +243,8 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
             <div className="eyebrow">Day {view.day} · Mission</div>
             <MissionBoard view={view} send={send} />
           </div>
-          <Controls hint={m.play && !m.play.counted ? 'The phones are playing. The result counts itself.' : 'Record the result'}>
-            {m.play && !m.play.counted ? null : <>
+          <Controls hint={m.play ? (m.play.counted ? 'The phones have been counted' : 'The phones are playing. The result counts itself.') : 'Record the result'}>
+            {m.play ? null : <>
             <button className={`btn ${r === 'success' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'success' })}>Success</button>
             <button className={`btn ${r === 'partial' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'partial' })}>Half</button>
             <button className={`btn ${r === 'fail' ? 'on' : ''}`} onClick={() => send({ type: 'missionResult', result: 'fail' })}>Failed</button>
@@ -320,7 +320,7 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
         <>
           <div className="tv-stage">
             <div className="eyebrow">Night {view.day}</div>
-            <div className="tv-title slow-in">Night falls over the castle</div>
+            <div className="tv-title slow-in">Night falls</div>
             <div className="tv-sub">Everyone, look at your phone and keep tapping. The Turncloaks are choosing their victim.</div>
             <div className="muted">{view.nightAgreed ? 'The Turncloaks have chosen.' : 'The Turncloaks are still choosing...'}</div>
           </div>

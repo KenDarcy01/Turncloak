@@ -217,7 +217,7 @@ function TakeSeat({
               onKeyDown={(e) => e.key === 'Enter' && name.trim() && !busy && run(() => onJoin(name.trim()))}
             />
             <button className="btn primary block" disabled={!name.trim() || busy} onClick={() => run(() => onJoin(name.trim()))}>
-              Enter the castle
+              Join the game
             </button>
           </>
         )}

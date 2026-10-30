@@ -450,14 +450,20 @@ function addPlayer(s: GameState, id: string, name: string, isBot: boolean): Game
   const player: Player = {
     id,
     name: name.trim().slice(0, 18) || 'Guest',
-    color: PLAYER_COLORS[s.players.length % PLAYER_COLORS.length],
+    color: freeColor(s),
     isBot,
     alive: true,
   };
   const next = { ...s, players: [...s.players, player] };
   if (!late) return next;
   // Late arrivals are always Truecloaks: the Turncloaks were chosen when the doors first closed.
-  return log({ ...next, roles: { ...s.roles, [id]: 'faithful' } }, `${player.name} arrived at the castle as a new Truecloak.`);
+  return log({ ...next, roles: { ...s.roles, [id]: 'faithful' } }, `${player.name} joined the game as a new Truecloak.`);
+}
+
+/** The first colour nobody at the table has, so a removed player's colour is used again before any repeats. */
+function freeColor(s: GameState): string {
+  const taken = s.players.map((p) => p.color);
+  return PLAYER_COLORS.find((c) => !taken.includes(c)) ?? PLAYER_COLORS[s.players.length % PLAYER_COLORS.length];
 }
 
 /** The host takes someone out of the game. */
@@ -536,7 +542,8 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
     case 'advance':
       return advance(s, ctx);
     case 'missionResult': {
-      if (s.phase !== 'mission' || !s.mission) return s;
+      // Phone games score themselves.
+      if (s.phase !== 'mission' || !s.mission || s.mission.play) return s;
       const card = MISSIONS.find((m) => m.id === s.mission!.cardId)!;
       const earned = a.result === 'success' ? card.reward : a.result === 'partial' ? Math.round(card.reward / 2) : 0;
       const prev = s.mission.earned;
@@ -619,7 +626,7 @@ function reduceInner(s: GameState, a: Action, ctx: Ctx): GameState {
         settings: s.settings,
         usedMissions: s.usedMissions,
         usedPrompts: s.usedPrompts,
-        players: s.players.filter((p) => p.out?.by !== 'left').map((p) => ({ ...p, alive: true, out: undefined })),
+        players: s.players.filter((p) => p.out?.by !== 'left').map((p) => ({ ...p, alive: true, out: undefined, away: undefined })),
       };
     }
   }

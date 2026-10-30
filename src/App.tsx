@@ -172,7 +172,7 @@ function useOnline<T extends GameConnection>(open: () => Promise<T>, deps: unkno
 function OnlineHost({ code }: { code: string }) {
   const { conn, error } = useOnline(() => connectOnline(code, TV), [code]);
   if (error || (conn && conn.missing())) {
-    return <Problem text={error || `This screen is not the host of game ${code}. Open the castle again from the home page.`} />;
+    return <Problem text={error || `This screen is not the host of game ${code}. Open the game again from the home page.`} />;
   }
   if (!conn) return <Problem text="Lighting the candles..." quiet />;
   return <HostScreen conn={conn} joinUrl={joinUrlFor(code)} online />;
@@ -209,7 +209,7 @@ function Join({ initialCode }: { initialCode?: string }) {
           <span className="eyebrow">Your name</span>
           <input className="field" value={name} maxLength={18} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok && join()} />
         </label>
-        <button className="btn primary block" disabled={!ok} onClick={join}>Enter the castle</button>
+        <button className="btn primary block" disabled={!ok} onClick={join}>Join the game</button>
       </div>
     </div>
   );
