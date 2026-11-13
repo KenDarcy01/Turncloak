@@ -14,16 +14,18 @@ const ME = 'you';
  * Play a whole game alone: you run the host screen and hold one phone, and bots
  * fill the other seats.
  */
-export function Demo() {
+export function Demo({ pack }: { pack?: string } = {}) {
   const [setup, setSetup] = useState<{ name: string; bots: number; role: Role | 'random'; pack: MissionPack } | null>(null);
-  return setup ? <DemoGame {...setup} onQuit={() => setSetup(null)} /> : <DemoSetup onStart={setSetup} />;
+  return setup ? <DemoGame {...setup} onQuit={() => setSetup(null)} /> : <DemoSetup initialPack={pack} onStart={setSetup} />;
 }
 
-function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; role: Role | 'random'; pack: MissionPack }) => void }) {
+function DemoSetup({ initialPack, onStart }: { initialPack?: string; onStart: (s: { name: string; bots: number; role: Role | 'random'; pack: MissionPack }) => void }) {
   const [name, setName] = useState('');
   const [bots, setBots] = useState(7);
   const [role, setRole] = useState<Role | 'random'>('random');
-  const [pack, setPack] = useState<MissionPack>('resort');
+  const [pack, setPack] = useState<MissionPack>(
+    MISSION_PACKS.find((p) => p.id === initialPack)?.id ?? 'resort',
+  );
   return (
     <div className="castle home">
       <Logo tagline />
@@ -50,7 +52,7 @@ function DemoSetup({ onStart }: { onStart: (s: { name: string; bots: number; rol
         </div>
         <div className="stack" style={{ gap: 6 }}>
           <span className="eyebrow">Missions</span>
-          <div className="seg">
+          <div className="seg wrap">
             {MISSION_PACKS.map((p) => (
               <button key={p.id} className={pack === p.id ? 'on' : ''} onClick={() => setPack(p.id)}>{p.name}</button>
             ))}
