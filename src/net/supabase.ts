@@ -5,7 +5,7 @@ import type { GameConnection } from './backend';
 import type { SeatInfo, TableInfo } from './device';
 
 /**
- * Online backend. Every move goes to the `game-action` edge function, which runs
+ * Online backend. Every move goes to the `turncloak-game-action` edge function, which runs
  * the rules on the server and writes one private view per screen. Each screen
  * reads only its own view (row level security) and hears about changes over
  * Realtime, with a slow poll as a safety net for phones waking from sleep.
@@ -18,7 +18,9 @@ const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 export const ONLINE = !!URL && !!KEY && import.meta.env.MODE !== 'singlefile' && import.meta.env.MODE !== 'test';
 
 let client: SupabaseClient | null = null;
-const sb = () => (client ??= createClient(URL!, KEY!));
+// The Supabase project is shared with other family apps, so keep Turncloak's guest session under
+// its own storage key. It can never pick up (or "Reset my data" delete) another app's signed-in account.
+const sb = () => (client ??= createClient(URL!, KEY!, { auth: { storageKey: 'turncloak-auth' } }));
 
 /** Sign in as a guest once per browser. The guest's user id is their player id. */
 export async function ensureUser(): Promise<string> {
@@ -30,7 +32,7 @@ export async function ensureUser(): Promise<string> {
 }
 
 async function call(code: string, action: Action | { type: 'create' } | { type: 'deleteMe' }) {
-  const { data, error } = await sb().functions.invoke('game-action', { body: { code, action } });
+  const { data, error } = await sb().functions.invoke('turncloak-game-action', { body: { code, action } });
   if (error) {
     // The function's own JSON error, when there is one, is more useful than the HTTP wrapper.
     let message = error.message;
@@ -61,14 +63,14 @@ export async function hostGame(): Promise<string> {
 }
 
 async function gameId(code: string): Promise<string | null> {
-  const { data } = await sb().from('games').select('id').eq('code', code).maybeSingle();
+  const { data } = await sb().from('turncloak_games').select('id').eq('code', code).maybeSingle();
   return data?.id ?? null;
 }
 
 /** Public facts about a game, readable before this phone has a seat. Null if there is no such game. */
 export async function tableInfo(code: string): Promise<TableInfo | null> {
   const uid = await ensureUser();
-  const { data } = await sb().from('games').select('phase, doors_open, free_seats, host_user_id').eq('code', code).maybeSingle();
+  const { data } = await sb().from('turncloak_games').select('phase, doors_open, free_seats, host_user_id').eq('code', code).maybeSingle();
   if (!data) return null;
   return { phase: data.phase, doorsOpen: data.doors_open, freeSeats: data.free_seats ?? [], isHost: data.host_user_id === uid };
 }
@@ -78,7 +80,7 @@ export async function mySeats(code: string): Promise<SeatInfo[]> {
   const uid = await ensureUser();
   const id = await gameId(code);
   if (!id) return [];
-  const { data } = await sb().from('seat_views').select('seat, view').eq('game_id', id).eq('viewer_id', uid).eq('is_tv', false);
+  const { data } = await sb().from('turncloak_seat_views').select('seat, view').eq('game_id', id).eq('viewer_id', uid).eq('is_tv', false);
   return (data ?? []).map((r) => ({
     id: r.seat as string,
     name: (r.view as GameState).players.find((p) => p.id === r.seat)?.name ?? 'Player',
@@ -119,7 +121,7 @@ export async function connectOnline(code: string, seat: string): Promise<GameCon
   const refresh = async () => {
     if (!id) return;
     const { data } = await sb()
-      .from('seat_views')
+      .from('turncloak_seat_views')
       .select('view')
       .eq('game_id', id)
       .eq('viewer_id', uid)
@@ -134,7 +136,7 @@ export async function connectOnline(code: string, seat: string): Promise<GameCon
         .channel(`views:${id}:${seat}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'seat_views', filter: `viewer_id=eq.${uid}` },
+          { event: '*', schema: 'public', table: 'turncloak_seat_views', filter: `viewer_id=eq.${uid}` },
           (payload) => {
             const row = payload.new as { game_id?: string; seat?: string; view?: GameState };
             if (row.game_id === id && row.seat === seat) accept(row.view);

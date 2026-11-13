@@ -4,5 +4,5 @@ dist-preview
 .env*
 !.env.example
 !.env.production
-supabase/functions/game-action/engine
+supabase/functions/turncloak-game-action/engine
 *.tsbuildinfo
