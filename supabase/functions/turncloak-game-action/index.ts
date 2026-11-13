@@ -6,7 +6,7 @@
 // 3. Run the shared reducer from src/engine (copied into ./engine by
 //    `npm run sync:engine` before deploy).
 // 4. Write the new state, then upsert one redacted view per seat. RLS on
-//    seat_views means each phone can only ever read the seats it holds.
+//    turncloak_seat_views means each phone can only ever read the seats it holds.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { newGame, reduce } from './engine/game.ts';
 import { HOST_ACTIONS, type Action, type GameState } from './engine/types.ts';
@@ -29,22 +29,31 @@ Deno.serve(async (req) => {
   const { code, action } = (await req.json()) as { code: string; action: Action | { type: 'create' } | { type: 'deleteMe' } };
 
   // "Reset my data": deleting the guest user cascades to the games they hosted and the seats they held.
+  // This project's auth users are shared with other family apps, so only ever delete a guest. A real
+  // account (one with an email) just loses its Turncloak rows and keeps everything else.
   if (action.type === 'deleteMe') {
+    if (!auth.user!.is_anonymous) {
+      const { error } = await admin.from('turncloak_games').delete().eq('host_user_id', uid);
+      const { error: seatErr } = await admin.from('turncloak_seats').delete().eq('user_id', uid);
+      const { error: viewErr } = await admin.from('turncloak_seat_views').delete().eq('viewer_id', uid);
+      const err = error ?? seatErr ?? viewErr;
+      return err ? json({ error: err.message }, 500) : json({ ok: true });
+    }
     const { error } = await admin.auth.admin.deleteUser(uid);
     return error ? json({ error: error.message }, 500) : json({ ok: true });
   }
 
   if (action.type === 'create') {
-    const { data: game, error } = await admin.from('games').insert({ code, host_user_id: uid }).select().single();
+    const { data: game, error } = await admin.from('turncloak_games').insert({ code, host_user_id: uid }).select().single();
     // 23505: the code is taken. The client picks another and retries.
     if (error) return json({ error: error.code === '23505' ? 'code taken' : error.message }, error.code === '23505' ? 409 : 400);
     const state = newGame(code);
-    await admin.from('game_state').insert({ game_id: game.id, state, rev: 0 });
+    await admin.from('turncloak_game_state').insert({ game_id: game.id, state, rev: 0 });
     await writeViews(admin, game.id, uid, state);
     return json({ ok: true });
   }
 
-  const { data: game } = await admin.from('games').select('id, host_user_id').eq('code', code).single();
+  const { data: game } = await admin.from('turncloak_games').select('id, host_user_id').eq('code', code).single();
   if (!game) return json({ error: 'no such game' }, 404);
   const isHost = game.host_user_id === uid;
 
@@ -56,7 +65,7 @@ Deno.serve(async (req) => {
   let allowed = HOST_ACTIONS.includes(action.type) ? isHost : !!seat;
   if (allowed && seat && action.type !== 'claimSeat') {
     const { data: holder } = await admin
-      .from('seats')
+      .from('turncloak_seats')
       .select('user_id')
       .eq('game_id', game.id)
       .eq('player_id', seat)
@@ -67,13 +76,13 @@ Deno.serve(async (req) => {
 
   // Optimistic concurrency: retry if another action landed first.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const { data: row } = await admin.from('game_state').select('state, rev').eq('game_id', game.id).single();
+    const { data: row } = await admin.from('turncloak_game_state').select('state, rev').eq('game_id', game.id).single();
     const prev = row!.state as GameState;
     const next = reduce(prev, action, { rng: Math.random, now: Date.now() });
     if (next === prev) return json({ ok: true, changed: false });
 
     const { data: updated } = await admin
-      .from('game_state')
+      .from('turncloak_game_state')
       .update({ state: next, rev: next.rev })
       .eq('game_id', game.id)
       .eq('rev', row!.rev)
@@ -81,15 +90,15 @@ Deno.serve(async (req) => {
     if (!updated?.length) continue;
 
     if (action.type === 'join' || action.type === 'claimSeat') {
-      await admin.from('seats').upsert({ game_id: game.id, player_id: seat, user_id: uid });
+      await admin.from('turncloak_seats').upsert({ game_id: game.id, player_id: seat, user_id: uid });
     }
     const seated = next.players.filter((p) => !p.isBot).map((p) => p.id);
     if (prev.players.some((p) => !p.isBot && !seated.includes(p.id))) {
-      const gone = admin.from('seats').delete().eq('game_id', game.id);
+      const gone = admin.from('turncloak_seats').delete().eq('game_id', game.id);
       await (seated.length ? gone.not('player_id', 'in', list(seated)) : gone);
     }
     await admin
-      .from('games')
+      .from('turncloak_games')
       .update({
         phase: next.phase,
         doors_open: !!next.doorsOpen,
@@ -108,7 +117,7 @@ const list = (ids: string[]) => `(${ids.map((id) => `"${id.replaceAll('"', '')}"
 
 // deno-lint-ignore no-explicit-any
 async function writeViews(admin: any, gameId: string, hostId: string, state: GameState) {
-  const { data: holders } = await admin.from('seats').select('player_id, user_id').eq('game_id', gameId);
+  const { data: holders } = await admin.from('turncloak_seats').select('player_id, user_id').eq('game_id', gameId);
   const holderOf = new Map<string, string>((holders ?? []).map((h: { player_id: string; user_id: string }) => [h.player_id, h.user_id]));
   const rows = [
     { game_id: gameId, seat: 'tv', viewer_id: hostId, is_tv: true, view: viewFor(state, TV), rev: state.rev },
@@ -116,9 +125,9 @@ async function writeViews(admin: any, gameId: string, hostId: string, state: Gam
       .filter((p) => !p.isBot && holderOf.has(p.id))
       .map((p) => ({ game_id: gameId, seat: p.id, viewer_id: holderOf.get(p.id), is_tv: false, view: viewFor(state, p.id), rev: state.rev })),
   ];
-  await admin.from('seat_views').upsert(rows, { onConflict: 'game_id,seat' });
+  await admin.from('turncloak_seat_views').upsert(rows, { onConflict: 'game_id,seat' });
   // A seat that was removed from the lobby should stop showing the game.
-  await admin.from('seat_views').delete().eq('game_id', gameId).not('seat', 'in', list(rows.map((r) => r.seat)));
+  await admin.from('turncloak_seat_views').delete().eq('game_id', gameId).not('seat', 'in', list(rows.map((r) => r.seat)));
 }
 
 function json(body: unknown, status = 200) {

@@ -53,17 +53,15 @@ supabase/       Online backend draft: schema, RLS, edge function
 
 ## Online play (Supabase)
 
-The hosted build (`npm run build`, published to GitHub Pages by `.github/workflows/pages.yml`) plays online through the Supabase project in `.env.production`:
+The hosted build (`npm run build`, published to GitHub Pages by `.github/workflows/pages.yml`) plays online through the Supabase project in `.env.production`. That project ("Family Quiz") is shared with other family apps, so every Turncloak table is prefixed `turncloak_` and the edge function is `turncloak-game-action`. The schema is `supabase/migrations/20261113000000_turncloak_shared_project.sql`; `supabase/migrations-legacy/` built the original standalone project and is kept for history.
 
-- Everyone signs in as a guest (Supabase anonymous auth), so `auth.uid()` is the player id.
-- `game_state` holds the full secret state. RLS is on with no client policies, so only the `game-action` edge function (service role) can touch it.
-- `supabase/functions/game-action` receives every move, checks it (host-only actions, players acting only as themselves), runs the same reducer, then writes one redacted row per screen into `game_views`.
-- RLS on `game_views` lets each user read only their own row. Screens listen over Realtime and poll every few seconds as a fallback.
-- The host screen sends a `botTick` every two seconds while bots are in play, so bots vote, murder, speak at the Round Table, and expired votes close.
+- Everyone signs in as a guest (Supabase anonymous auth), so `auth.uid()` is the device id. The client stores its session under its own key (`turncloak-auth`) so it never shares a session with another app on the same site.
+- `turncloak_game_state` holds the full secret state. RLS is on with no client policies, so only the edge function (service role) can touch it.
+- `supabase/functions/turncloak-game-action` receives every move, checks it (host-only actions, players acting only for the seats they hold), runs the same reducer, then writes one redacted row per seat into `turncloak_seat_views`.
+- RLS on `turncloak_seat_views` lets each device read only the seats it holds. Screens listen over Realtime and poll every few seconds as a fallback.
+- "Reset my data" deletes the guest user. If the caller is a real account shared with another app, it deletes only that account's Turncloak rows.
 
-To change the rules on the server: edit `src/engine`, run `npm run sync:engine`, then redeploy the function (`supabase functions deploy game-action`).
-
-Bots sit out the physical missions: mission jobs and secret prompts only go to real players.
+To change the rules on the server: edit `src/engine`, run `npm run sync:engine`, then redeploy the function (`supabase functions deploy turncloak-game-action`).
 
 ## Ideas queued for later
 
