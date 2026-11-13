@@ -1,5 +1,6 @@
 import { AIRPORT_MISSIONS } from './missions-airport';
 import { DINNER_MISSIONS } from './missions-dinner';
+import { OFFICE_MISSIONS } from './missions-office';
 import { PHONE_MISSIONS } from './missions-phone';
 import { RESORT_MISSIONS } from './missions-resort';
 
@@ -42,13 +43,14 @@ export interface PromptSet {
   showSeconds?: number;
 }
 
-export type MissionPack = 'castle' | 'resort' | 'dinner' | 'airport';
+export type MissionPack = 'castle' | 'resort' | 'dinner' | 'airport' | 'office';
 
 export const MISSION_PACKS: { id: MissionPack; name: string; blurb: string }[] = [
   { id: 'resort', name: 'Resort & Pool', blurb: 'Warm and cold pools, an inflatable ring and an inflatable football' },
   { id: 'castle', name: 'Castle (indoors)', blurb: 'Living room games with paper, cups and a spoon' },
   { id: 'dinner', name: 'Family Dinner', blurb: 'Quiet games for a restaurant table, ages 10 and up, nothing needed but phones' },
   { id: 'airport', name: 'Airport Gate', blurb: 'Quiet seated games while you wait for a flight, nothing needed but phones' },
+  { id: 'office', name: 'Office Party', blurb: 'Work-safe Christmas party games for colleagues, nothing needed but phones' },
 ];
 
 export interface MissionCard {
@@ -660,7 +662,7 @@ const CASTLE_MISSIONS: MissionCard[] = [
   },
 ];
 
-export const MISSIONS: MissionCard[] = [...CASTLE_MISSIONS, ...RESORT_MISSIONS, ...DINNER_MISSIONS, ...AIRPORT_MISSIONS, ...PHONE_MISSIONS];
+export const MISSIONS: MissionCard[] = [...CASTLE_MISSIONS, ...RESORT_MISSIONS, ...DINNER_MISSIONS, ...AIRPORT_MISSIONS, ...OFFICE_MISSIONS, ...PHONE_MISSIONS];
 
 export const packOf = (m: MissionCard): MissionPack => m.pack ?? 'castle';
 
