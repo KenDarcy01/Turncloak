@@ -63,7 +63,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.turncloak.app
+          packageName: app.turncloak.game
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: draft
