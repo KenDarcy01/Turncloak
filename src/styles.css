@@ -336,6 +336,11 @@ button.link { appearance: none; background: none; border: 0; padding: 0; cursor:
 .seg button + button { border-left: 1px solid var(--line); }
 @media (max-width: 360px) { .seg button { font-size: 0.62rem; letter-spacing: 0.04em; padding: 8px 4px; } }
 .seg button.on { background: rgba(212, 175, 95, 0.18); color: var(--gold-bright); }
+/* A segmented choice with too many options for one row: wraps into rows of three. */
+.seg.wrap { flex-wrap: wrap; gap: 1px; background: var(--line); border-radius: var(--radius); }
+.seg.wrap button { flex: 1 1 30%; background: var(--stone-2); }
+.seg.wrap button + button { border-left: 0; }
+.seg.wrap button.on { background: linear-gradient(rgba(212, 175, 95, 0.18), rgba(212, 175, 95, 0.18)), var(--stone-2); }
 
 .log { font-size: 0.95rem; color: var(--muted); display: flex; flex-direction: column; gap: 4px; text-align: left; }
 

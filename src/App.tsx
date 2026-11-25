@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { makeCode } from './engine/game';
+import type { MissionPack } from './engine/missions';
 import { TV } from './engine/view';
 import { LocalHost, type GameConnection } from './net/backend';
 import { deviceFor } from './net/device';
 import { connectOnline, deleteMe, hostGame, ONLINE } from './net/supabase';
-import { storage } from './net/storage';
+import { PACK_KEY, storage } from './net/storage';
 import { NATIVE, WEB_URL } from './native';
 import { Demo } from './screens/Demo';
 import { HostScreen } from './screens/HostScreen';
@@ -25,12 +26,21 @@ export const go = (path: string) => (window.location.hash = `#/${path}`);
 
 export function App() {
   const [route, code] = useHash();
-  if (route === 'demo') return <Demo />;
+  if (route === 'demo') return <Demo pack={code} />;
+  if (route === 'office') return <PackLink pack="office" />;
   if (route === 'host' && code) return <Host code={code.toUpperCase()} />;
   if (route === 'join') return <Join initialCode={code} />;
   if (route === 'play' && code) return <Play code={code.toUpperCase()} />;
   // The hosted preview is a single page, so it opens straight into the demo.
   if (import.meta.env.MODE === 'singlefile' && route !== 'home') return <Demo />;
+  return <Home />;
+}
+
+/** A link that picks a mission pack for the next game this device hosts, then shows the home page. */
+function PackLink({ pack }: { pack: MissionPack }) {
+  useEffect(() => {
+    storage.set(PACK_KEY, pack);
+  }, [pack]);
   return <Home />;
 }
 
@@ -44,6 +54,7 @@ function Home() {
         <Continue />
         <Actions />
         <button className="link" onClick={() => go('demo')}>or try a demo against bots ›</button>
+        {!NATIVE && <a className="link" href="party/">Organising an office Christmas party? ›</a>}
         <button className="scroll-hint" onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })}>
           How it plays ⌄
         </button>

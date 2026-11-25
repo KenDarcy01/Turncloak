@@ -16,7 +16,7 @@ import { MISSION_PACKS, type MissionPack } from '../engine/missions';
 import type { Action, GameState } from '../engine/types';
 import { HIDDEN } from '../engine/view';
 import type { GameConnection } from '../net/backend';
-import { storage } from '../net/storage';
+import { PACK_KEY, storage } from '../net/storage';
 import { shareInvite, useKeepAwake } from '../native';
 import { Avatar, Countdown, Gold, Logo, Seats, useView } from '../ui/components';
 import { MissionBoard } from './MissionBoard';
@@ -36,6 +36,7 @@ export function HostScreen({ conn, joinUrl, compact, online }: Props) {
   const [panel, setPanel] = useState(false);
   useBotHeartbeat(online ? conn : null, view);
   useMissionHistory(compact ? null : conn, view);
+  usePreferredPack(compact ? null : conn, view);
   useKeepAwake();
   if (!view) return <div className="castle tv"><div className="tv-stage muted">Lighting the candles...</div></div>;
   const send = (a: Action) => conn.send(a);
@@ -85,6 +86,24 @@ function useMissionHistory(conn: GameConnection | null, view: GameState | null) 
   useEffect(() => {
     if (conn && missions?.length) storage.setJSON(HISTORY_KEY, { missions, prompts: prompts ?? [] });
   }, [conn, missions, prompts]);
+}
+
+/**
+ * Start each new lobby on the mission pack this device last chose, or the one
+ * a link asked for (turncloak.app/#/office picks the office party pack).
+ */
+function usePreferredPack(conn: GameConnection | null, view: GameState | null) {
+  const applied = useRef(false);
+  const lobby = !!view && view.phase === 'lobby';
+  const current = view?.settings.missionPack;
+  useEffect(() => {
+    if (!conn || !lobby || applied.current) return;
+    applied.current = true;
+    const want = storage.get(PACK_KEY);
+    if (want && want !== current && MISSION_PACKS.some((p) => p.id === want)) {
+      conn.send({ type: 'updateSettings', settings: { missionPack: want as MissionPack } });
+    }
+  }, [conn, lobby, current]);
 }
 
 const BOT_PHASES = ['roundtable', 'vote', 'night', 'endgameVote'];
@@ -160,7 +179,10 @@ function Stage({ view, send, joinUrl, compact, online }: { view: GameState; send
               <select
                 className="field compact"
                 value={view.settings.missionPack}
-                onChange={(e) => send({ type: 'updateSettings', settings: { missionPack: e.target.value as MissionPack } })}
+                onChange={(e) => {
+                  storage.set(PACK_KEY, e.target.value);
+                  send({ type: 'updateSettings', settings: { missionPack: e.target.value as MissionPack } });
+                }}
               >
                 {MISSION_PACKS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>

@@ -54,3 +54,6 @@ export function playerIdFor(code: string): string {
   }
   return id;
 }
+
+/** The mission pack this device last chose for a game it hosts. */
+export const PACK_KEY = 'turncloak:pack';
